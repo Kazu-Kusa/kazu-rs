@@ -1483,6 +1483,7 @@ dependencies = [
  "rayon",
  "toml",
  "upic-rs",
+ "uptechstar-rs",
 ]
 
 [[package]]
@@ -1516,6 +1517,16 @@ name = "libc"
 version = "0.2.172"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d750af042f7ef4f724306de029d18836c26c1765a54a6a3f094cbd23a7267ffa"
+
+[[package]]
+name = "libloading"
+version = "0.8.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "07033963ba89ebaf1584d767badaa2e8fcec21aedea6b8c0346d487d49c28667"
+dependencies = [
+ "cfg-if",
+ "windows-targets 0.53.0",
+]
 
 [[package]]
 name = "libm"
@@ -2987,6 +2998,18 @@ dependencies = [
  "apriltag",
  "log",
  "opencv",
+]
+
+[[package]]
+name = "uptechstar-rs"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "91e4d2861feb8dccdbac7242b6dace6c3d4eacc2abd9dbef65d124c0025f089f"
+dependencies = [
+ "libloading",
+ "log",
+ "once_cell",
+ "tempfile",
 ]
 
 [[package]]
