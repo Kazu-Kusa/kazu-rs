@@ -1,0 +1,10 @@
+[package]
+name = "upic-rs"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+opencv = { version = "0.94.4", features = ["highgui", "imgproc", "videoio", ] }
+log = "0.4.27"
+
+apriltag = "0.4.0"

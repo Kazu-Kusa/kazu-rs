@@ -1,0 +1,22 @@
+[package]
+name = "kazu-rs"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clap = "4.5.18"
+figment = { version = "0.10.19", features = ["env", "toml"] }
+indicatif = "0.17.11"
+log = "0.4.27"
+rayon = "1.10.0"
+toml = "0.8.23"
+
+bdmc-rs = { path = "crates/bdmc-rs" }
+upic-rs = { path = "crates/upic-rs" }
+mentabotix-rs = { path = "crates/mentabotix-rs" }
+
+
+[workspace]
+members = [
+    "crates/*"
+]
