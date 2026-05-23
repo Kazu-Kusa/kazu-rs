@@ -14,7 +14,7 @@ toml = "1.1.2"
 bdmc-rs = { path = "crates/bdmc-rs" }
 upic-rs = { path = "crates/upic-rs" }
 mentabotix-rs = { path = "crates/mentabotix-rs" }
-uptechstar-rs = "0.1.0"
+uptechstar-rs = { path = "crates/uptechstar-rs" }
 
 
 [workspace]
