@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-clap = "4.5.39"
-log = "0.4.27"
-serde_json = "1.0.140"
-serialport = "4.5.1"
+clap = "4.6.1"
+log = "0.4.29"
+serde_json = "1.0.150"
+serialport = "4.9.0"

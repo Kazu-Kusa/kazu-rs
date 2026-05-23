@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-opencv = { version = "0.94.4", features = ["highgui", "imgproc", "videoio", ] }
-log = "0.4.27"
+opencv = { version = "0.98.2", features = ["highgui", "imgproc", "videoio", ] }
+log = "0.4.29"
 
 apriltag = "0.4.0"

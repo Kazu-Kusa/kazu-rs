@@ -1,15 +1,15 @@
 [package]
 name = "kazu-rs"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
-clap = "4.5.18"
+clap = "4.6.1"
 figment = { version = "0.10.19", features = ["env", "toml"] }
-indicatif = "0.17.11"
-log = "0.4.27"
-rayon = "1.10.0"
-toml = "0.8.23"
+indicatif = "0.18.4"
+log = "0.4.29"
+rayon = "1.12.0"
+toml = "1.1.2"
 
 bdmc-rs = { path = "crates/bdmc-rs" }
 upic-rs = { path = "crates/upic-rs" }

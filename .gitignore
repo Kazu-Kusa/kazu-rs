@@ -5,3 +5,6 @@ source
 repo
 target
 img
+
+repo
+*.lock
