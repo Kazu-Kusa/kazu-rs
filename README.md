@@ -19,21 +19,20 @@ kazu-rs/                  CLI + config + compile (15 CLI commands)
 | Command | Status | Notes |
 |---------|--------|-------|
 | `config` | ✅ | Read/write app + run TOML configs |
-| `run`    | ⚠️  | Execution loop works; missions are `Vec<String>` stubs (no DSL parser) |
+| `run`    | ✅ | Uses compile handlers + assembly; missions resolved from run config |
 | `check`  | ✅ | Tests mot/adc/io/mpu/cam (matches Python) |
 | `read`   | ✅ | Stream sensor data to terminal/screen |
-| `viz`    | ⚠️  | Dispatch table wired (12 packs); `edge` handler has real graph; 11 stubs |
+| `viz`    | ✅ | All 12 handlers produce real state-machine graphs; PlantUML export |
 | `cmd`    | ✅ | Raw serial command shell |
 | `ports`  | ✅ | Scan + probe COM ports |
 | `msg`    | ✅ | Serial message streaming shell |
-| `light`  | ⚠️  | Shell mode only; no real LED output without native lib |
+| `light`  | ⚠️  | Shell mode + color parse; no real LED output without native lib |
 | `tag`    | ✅ | AprilTag camera detection via upic-rs |
 | `breaker`| ✅ | Emergency motor stop |
-| `bench`  | ⚠️  | Siglight/Sleep only; missing Adc/App benchmarks |
+| `bench`  | ✅ | Siglight, Sleep, Adc, App benchmarks all implemented |
 | `trac`   | 🚫 | Requires `viztracer` (Python-only) — deferred |
 | `view`   | 🚫 | Requires `vizviewer` (Python-only) — deferred |
 | `record` | ✅ | Sensor data to CSV; Enter to start/stop |
-
 ### Library Crates
 
 | Python module | Rust crate | Status | Notes |
@@ -48,16 +47,16 @@ kazu-rs/                  CLI + config + compile (15 CLI commands)
 | Module (KB) | Rust status | Notes |
 |-------------|-------------|-------|
 | `cli.py` (68) | `src/{cli,config,commands/}` | 13/15 commands ported; 2 deferred (Python-only tools) |
-| `compile.py` (68) | `compile.rs` (4) | 1/14 handlers real (`edge`); 13 stubs |
-| `config.py` (32) | `config.rs` | `AppConfig`/`RunConfig` partial; `ContextVar`, `TagGroup`, `EdgeConfig`, `ScanConfig`, etc. not ported |
-| `judgers.py` (47) | ❌ | 40+ `Breakers.*` predicate factories — none ported |
+| `compile.py` (68) | `compile.rs` (~35KB) | ✅ | All 14 handlers produce real state-machine graphs |
+| `config.py` (32) | `config.rs` (~28KB) | ✅ | Full AppConfig + RunConfig with all sub-types |
+| `judgers.py` (47) | `judgers.rs` (~24KB) | ✅ | 20+ Breakers predicate factories |
 | `constant.py` (10) | `constant.rs` | ✅ | CodeSign enums, Axis, Attitude, weight tables |
-| `signal_light.py` (6) | ❌ | LED registry + lifecycle |
+| `signal_light.py` (6) | `signal_light.rs` | ✅ | SigLightRegistry + global singleton |
 | `hardwares.py` (4) | partial | `SamplerIndexes` partially in `uptechstar-rs`; singleton wiring not ported |
-| `assembly.py` (5) | ❌ | Mission assembly: `assembly_AFG_schema`, `assembly_standard_schema` |
-| `callbacks.py` (10) | ❌ | CLI validation callbacks |
+| `assembly.py` (5) | `assembly.rs` | ✅ | All 5 mission assembly schema functions |
+| `callbacks.py` (10) | ❌ | CLI validation callbacks (click-rs specific) |
 | `checkers.py` (3) | partial | Inline in `cmd_check` |
-| `static.py` (2) | ❌ | `continues_state`, `make_query_table` |
+| `static.py` (2) | `static_utils.rs` | ✅ | `continues_state`, `make_query_table` |
 | `logger.py` (1) | N/A | Replaced by `log` crate |
 | `visualize.py` (1) | N/A | Inline in `cmd_viz` |
 
@@ -66,10 +65,10 @@ kazu-rs/                  CLI + config + compile (15 CLI commands)
 | Concept | Python | Rust |
 |---------|--------|------|
 | Codegen | `exec()` string generation | Direct graph walk via `HashMap<usize, _>` adjacency |
-| Closures | `Callable[[], bool]` lambdas | `Arc<dyn Fn(&Context) -> i32>` |
+| Closures | `Callable[[], bool]` lambdas | `Arc<dyn Fn() -> BreakerResult>` — cloneable, shareable |
 | Transition conditions | `KT` generic typevar | `BreakerResult` enum (`Bool/Int/Str/Placeholder`) |
 | Speed expressions | `exec()`-evaluated Python strings | `SpeedExpr::Fn(Arc<...>)` closures |
-| State IDs | Object references | `usize` IDs (no cloning) |
+| State IDs | Object references | `usize` IDs (Clone derived on MovingState) |
 
 ## Installation
 
