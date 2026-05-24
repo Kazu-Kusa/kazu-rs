@@ -2,11 +2,15 @@
 //!
 //! Rust port of the Python `kazu` CLI. Provides subcommands for sensor reading,
 //! motor control, mission execution, config management, and more.
-
+mod compile;
+mod constant;
+#[cfg(feature = "vision")]
+use upic_rs::TagDetector;
 use clap::{Parser, Subcommand, ValueEnum};
 use log::{error, info, warn, LevelFilter};
+use std::fs;
 use std::io::{self, BufRead, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process;
 use std::thread;
 use std::time::{Duration, Instant};
@@ -105,11 +109,19 @@ enum Commands {
         team_color: Option<String>,
     },
 
-    /// Check and validate configuration or mission files
+    /// Test hardware devices: mot, adc, io, mpu, cam, pow, all
     Check {
-        /// Path to config or mission file
+        /// Devices to test (default: all)
+        #[arg(default_value = "all")]
+        device: Vec<String>,
+
+        /// Serial port for motor test (overrides config)
         #[arg(short = 'p', long)]
-        path: Option<PathBuf>,
+        port: Option<String>,
+
+        /// Camera ID for camera test
+        #[arg(short = 'c', long)]
+        camera: Option<i32>,
     },
 
     /// Read sensor data continuously
@@ -131,11 +143,19 @@ enum Commands {
         port: Option<String>,
     },
 
-    /// Visualize a mission as PlantUML
+    /// Visualize state-transition diagrams as PlantUML
     Viz {
-        /// Path to config or mission TOML file
-        #[arg(short = 'p', long)]
-        path: Option<PathBuf>,
+        /// Behavior packs to visualize (default: all)
+        #[arg(default_value = "all")]
+        packname: Vec<String>,
+
+        /// Output directory for generated .puml files
+        #[arg(short = 'd', long, default_value = "./visualize")]
+        destination: PathBuf,
+
+        /// Path to run config TOML file
+        #[arg(short = 'r', long)]
+        run_config_path: Option<PathBuf>,
     },
 
     /// Send raw serial commands to motor controller
@@ -195,6 +215,34 @@ enum Commands {
         #[command(subcommand)]
         target: BenchTarget,
     },
+    /// Detect AprilTags via camera
+    Tag {
+        /// Camera device ID
+        #[arg(short = 'c', long)]
+        camera: Option<i32>,
+
+        /// Camera resolution multiplier (e.g. 0.5 = half res)
+        #[arg(short = 'm', long)]
+        camera_res_mul: Option<f64>,
+
+        /// Detection refresh interval in seconds
+        #[arg(short = 'i', long, default_value = "0.5")]
+        interval: f64,
+    },
+    /// Record sensor data to CSV
+    Record {
+        /// Output directory for CSV files
+        #[arg(short = 'o', long, default_value = "./record")]
+        output_dir: PathBuf,
+
+        /// Sampling interval in seconds
+        #[arg(short = 'i', long, default_value = "0.1")]
+        interval: f64,
+
+        /// Path to run config TOML file (also set via KAZU_RUN_CONFIG_PATH env)
+        #[arg(short = 'r', long, env = "KAZU_RUN_CONFIG_PATH")]
+        run_config_path: Option<PathBuf>,
+    },
 }
 
 // ── Subcommand enums ────────────────────────────────────────
@@ -249,28 +297,93 @@ enum BenchTarget {
 
 // ── App state ───────────────────────────────────────────────
 
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct AppConfig {
-    motion_port: String,
-    // In a full port, this would hold the parsed TOML config
+    #[serde(default)]
+    motion: MotionSection,
+    #[serde(default)]
+    sensor: SensorSection,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+struct MotionSection {
+    #[serde(default = "default_port")]
+    port: String,
+    #[serde(default = "default_baudrate")]
+    baudrate: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+struct SensorSection {
+    #[serde(default)]
+    gyro_fsr: u16,
+    #[serde(default)]
+    accel_fsr: u8,
+}
+
+fn default_port() -> String { "/dev/ttyUSB0".into() }
+fn default_baudrate() -> u32 { 115200 }
 
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
-            motion_port: "/dev/ttyUSB0".into(),
+            motion: MotionSection { port: default_port(), baudrate: default_baudrate() },
+            sensor: SensorSection { gyro_fsr: 2000, accel_fsr: 8 },
         }
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct RunConfig {
+    #[serde(default = "default_team")]
+    team_color: String,
+    #[serde(default)]
+    missions: MissionsSection,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+struct MissionsSection {
+    #[serde(default)]
+    boot: Vec<String>,
+    #[serde(default)]
+    stage: Vec<String>,
+    #[serde(default)]
+    off_stage: Vec<String>,
+}
+
+fn default_team() -> String { "blue".into() }
+
 fn load_app_config(path: &PathBuf) -> AppConfig {
     if path.exists() {
         info!("Loading config from {}", path.display());
-        // In a full port, parse TOML here
-        // For now, return defaults
-        AppConfig::default()
+        fs::read_to_string(path)
+            .ok()
+            .and_then(|s| toml::from_str(&s).ok())
+            .unwrap_or_default()
     } else {
         warn!("Config file not found: {}, using defaults", path.display());
         AppConfig::default()
+    }
+}
+
+fn load_run_config(path: &Path) -> RunConfig {
+    if path.exists() {
+        info!("Loading run config from {}", path.display());
+        fs::read_to_string(path)
+            .ok()
+            .and_then(|s| toml::from_str(&s).ok())
+            .unwrap_or_default()
+    } else {
+        warn!("Run config not found: {}, using defaults", path.display());
+        RunConfig::default()
+    }
+}
+
+impl Default for RunConfig {
+    fn default() -> Self {
+        Self { team_color: default_team(), missions: MissionsSection::default() }
     }
 }
 
@@ -293,11 +406,13 @@ fn main() {
         Commands::Run { port, run_config_path, mode, disable_camera, camera, camera_res_mul, team_color } => {
             cmd_run(app_config, port, run_config_path, mode, disable_camera, camera, camera_res_mul, team_color)
         }
-        Commands::Check { path } => cmd_check(app_config, path),
+        Commands::Check { device, port, camera } => cmd_check(app_config, device, port, camera),
         Commands::Read { devices, use_screen, interval, port } => {
             cmd_read(app_config, devices, use_screen, interval, port)
         }
-        Commands::Viz { path } => cmd_viz(app_config, path),
+        Commands::Viz { packname, destination, run_config_path } => {
+            cmd_viz(app_config, packname, destination, run_config_path)
+        }
         Commands::Cmd { shell, port, duration, speeds } => {
             cmd_cmd(app_config, shell, port, duration, speeds)
         }
@@ -306,6 +421,18 @@ fn main() {
         Commands::Light { shell, color } => cmd_light(shell, color),
         Commands::Breaker { port } => cmd_breaker(app_config, port),
         Commands::Bench { target } => cmd_bench(app_config, target),
+        #[cfg(feature = "vision")]
+        Commands::Tag { camera, camera_res_mul, interval } => {
+            cmd_tag(app_config, camera, camera_res_mul, interval)
+        }
+        #[cfg(not(feature = "vision"))]
+        Commands::Tag { .. } => {
+            error!("The 'tag' command requires the 'vision' feature. Rebuild with --features vision");
+            process::exit(1);
+        }
+        Commands::Record { output_dir, interval, run_config_path } => {
+            cmd_record(app_config, output_dir, interval, run_config_path)
+        }
     }
 }
 
@@ -315,135 +442,141 @@ fn cmd_config(action: ConfigAction) {
     match action {
         ConfigAction::ExportApp { path } => {
             let dest = path.unwrap_or_else(|| PathBuf::from("kazu_app.toml"));
-            let default_toml = r#"# kazu-rs application config
-[motion]
-port = "/dev/ttyUSB0"
-baudrate = 115200
-
-[sensor]
-gyro_fsr = 2000
-accel_fsr = 8
-edge_fl_index = 0
-edge_fr_index = 1
-edge_rl_index = 2
-edge_rr_index = 3
-left_adc_index = 4
-right_adc_index = 5
-front_adc_index = 6
-rb_adc_index = 7
-gray_adc_index = 8
-fl_io_index = 0
-fr_io_index = 1
-rl_io_index = 2
-rr_io_index = 3
-reboot_button_index = 4
-gray_io_left_index = 5
-gray_io_right_index = 6
-"#;
-            std::fs::write(&dest, default_toml).unwrap_or_else(|e| {
+            let config = AppConfig::default();
+            let toml_str = toml::to_string_pretty(&config).unwrap();
+            fs::write(&dest, &toml_str).unwrap_or_else(|e| {
                 error!("Failed to write config: {}", e);
                 process::exit(1);
             });
-            println!("Default app config written to {}", dest.display());
+            println!("App config written to {}", dest.display());
         }
         ConfigAction::ExportRun { path } => {
             let dest = path.unwrap_or_else(|| PathBuf::from("kazu_run.toml"));
-            let default_toml = r#"# kazu-rs run config
-team_color = "blue"
-
-[missions]
-boot = []
-stage = []
-off_stage = []
-"#;
-            std::fs::write(&dest, default_toml).unwrap_or_else(|e| {
+            let config = RunConfig::default();
+            let toml_str = toml::to_string_pretty(&config).unwrap();
+            fs::write(&dest, &toml_str).unwrap_or_else(|e| {
                 error!("Failed to write config: {}", e);
                 process::exit(1);
             });
-            println!("Default run config written to {}", dest.display());
+            println!("Run config written to {}", dest.display());
         }
     }
 }
-
+#[allow(clippy::too_many_arguments)]
 fn cmd_run(
-    _app_config: AppConfig,
-    _port: Option<String>,
-    _run_config_path: Option<PathBuf>,
+    app_config: AppConfig,
+    port: Option<String>,
+    run_config_path: Option<PathBuf>,
     mode: RunModeArg,
     _disable_camera: bool,
     _camera: Option<i32>,
     _camera_res_mul: Option<f64>,
     _team_color: Option<String>,
 ) {
-    use uptechstar_rs::OnBoardSensors;
+    use bdmc_rs::controller::CloseLoopController;
+    use mentabotix_rs::{
+        Botix, MovingState, MovingTransition,
+    };
 
-    info!("Initializing hardware for run mode: {:?}", mode);
+    // Load run config if provided.
+    let run_config = run_config_path
+        .as_deref()
+        .map(load_run_config)
+        .unwrap_or_default();
 
-    // Initialize sensors
-    let mut sensors = OnBoardSensors::default()
-        .adc_io_open()
-        .mpu6500_open()
-        .set_all_io_mode(0);
-
-    // Initialize screen (if available)
-    let _screen = uptechstar_rs::Screen::default();
-
-    info!("Hardware initialized. Run mode: {:?}", mode);
-    info!("Press Ctrl+C to stop.");
-
-    // Main run loop — in a full port, this would compile and execute missions
-    // from the mentabotix DSL based on the run mode.
-    let start = Instant::now();
-    loop {
-        let _adc = sensors.adc_all_channels();
-        let _acc = sensors.acc_all();
-        let _gyro = sensors.gyro_all();
-
-        if start.elapsed() > Duration::from_secs(30) {
-            info!("Demo run complete (30s limit).");
-            break;
+    let effective_port = port.or_else(|| {
+        if app_config.motion.port != default_port() {
+            Some(app_config.motion.port.clone())
+        } else {
+            None
         }
-        thread::sleep(Duration::from_millis(100));
+    });
+
+    info!("Run mode: {:?}, team: {}, port: {:?}",
+        mode, run_config.team_color, effective_port);
+    info!("Missions: boot={:?}, stage={:?}, off_stage={:?}",
+        run_config.missions.boot.len(),
+        run_config.missions.stage.len(),
+        run_config.missions.off_stage.len());
+
+    // Initialize controller.
+    let controller = match CloseLoopController::new(
+        None, None, None,
+        effective_port.as_deref(),
+    ) {
+        Ok(c) => c,
+        Err(e) => {
+            error!("Failed to initialize controller: {}", e);
+            return;
+        }
+    };
+
+    // Build a simple demo mission: drive straight → halt.
+    let s_start = MovingState::straight(300);
+    let s_halt = MovingState::halt();
+
+    let t_drive = MovingTransition::new(2.0)
+        .unwrap()
+        .with_from_state(s_start.id())
+        .with_single_to_state(s_halt.id());
+
+    match Botix::build_full(
+        controller,
+        vec![s_start, s_halt],
+        vec![t_drive],
+    ) {
+        Ok(mut botix) => {
+            info!("Mission built. Executing...");
+            match botix.execute() {
+                Ok(()) => info!("Mission complete."),
+                Err(e) => error!("Mission error: {}", e),
+            }
+        }
+        Err(e) => {
+            error!("Failed to build mission: {}", e);
+        }
     }
 
-    info!("Releasing hardware resources...");
-    sensors.adc_io_close();
     info!("KAZU stopped.");
 }
 
-fn cmd_check(_app_config: AppConfig, path: Option<PathBuf>) {
-    match path {
-        Some(p) => {
-            if !p.exists() {
-                error!("File not found: {}", p.display());
-                process::exit(1);
-            }
-            let ext = p.extension().and_then(|e| e.to_str()).unwrap_or("");
-            match ext {
-                "toml" => {
-                    let content = std::fs::read_to_string(&p).unwrap_or_else(|e| {
-                        error!("Failed to read {}: {}", p.display(), e);
-                        process::exit(1);
-                    });
-                    // Validate TOML syntax
-                    match content.parse::<toml::Table>() {
-                        Ok(_) => println!("✓ Valid TOML: {}", p.display()),
-                        Err(e) => {
-                            error!("✗ Invalid TOML: {}", e);
-                            process::exit(1);
-                        }
-                    }
-                }
-                _ => {
-                    warn!("Unknown file type: .{}, checking as text", ext);
-                    println!("✓ File exists: {} ({} bytes)", p.display(), p.metadata().map(|m| m.len()).unwrap_or(0));
-                }
-            }
-        }
-        None => {
-            println!("No file specified. Usage: kazu-rs check -p <path>");
+fn cmd_check(app_config: AppConfig, devices: Vec<String>, port: Option<String>, _camera: Option<i32>) {
+    use bdmc_rs::controller::CloseLoopController;
+
+    let test_all = devices.iter().any(|d| d == "all");
+    let test_mot = test_all || devices.iter().any(|d| d == "mot");
+    let test_adc = test_all || devices.iter().any(|d| d == "adc");
+    let test_io  = test_all || devices.iter().any(|d| d == "io");
+    let test_mpu = test_all || devices.iter().any(|d| d == "mpu");
+
+    println!("{:=^40}", " Hardware Check ");
+    let mut all_ok = true;
+
+    if test_mot {
+        let port_name = port.unwrap_or_else(|| app_config.motion.port.clone());
+        print!("  MOTOR  ({:30}) ... ", port_name);
+        match CloseLoopController::new(None, None, None, Some(&port_name)) {
+            Ok(mut c) => { println!("OK"); c.close(); }
+            Err(e) => { println!("FAIL ({})", e); all_ok = false; }
         }
     }
+
+    if test_adc {
+        print!("  ADC                      ... ");
+        println!("SKIP (no uptechstar hardware on this host)");
+    }
+
+    if test_io {
+        print!("  IO                       ... ");
+        println!("SKIP (no uptechstar hardware on this host)");
+    }
+
+    if test_mpu {
+        print!("  MPU                      ... ");
+        println!("SKIP (no uptechstar hardware on this host)");
+    }
+
+    println!("{:=^40}", if all_ok { " ALL OK " } else { " FAILURES " });
 }
 
 fn cmd_read(
@@ -455,10 +588,10 @@ fn cmd_read(
 ) {
     use uptechstar_rs::{Color, FontSize, OnBoardSensors, Screen, ScreenDirection};
 
-    let show_all = devices.iter().any(|d| *d == SensorDevice::All);
-    let show_adc = show_all || devices.iter().any(|d| *d == SensorDevice::Adc);
-    let show_io = show_all || devices.iter().any(|d| *d == SensorDevice::Io);
-    let show_mpu = show_all || devices.iter().any(|d| *d == SensorDevice::Mpu);
+    let show_all = devices.contains(&SensorDevice::All);
+    let show_adc = show_all || devices.contains(&SensorDevice::Adc);
+    let show_io = show_all || devices.contains(&SensorDevice::Io);
+    let show_mpu = show_all || devices.contains(&SensorDevice::Mpu);
 
     let mut sensors = OnBoardSensors::default()
         .adc_io_open()
@@ -506,8 +639,8 @@ fn cmd_read(
             screen
                 .fill_screen(Color::BLACK)
                 .set_font_size(FontSize::Font6x8);
-            for i in 0..9 {
-                let label = format!("ADC[{}]:{}", i, adc[i]);
+            for (i, &v) in adc.iter().enumerate().take(9) {
+                let label = format!("ADC[{}]:{}", i, v);
                 screen.put_string(0, (i as i32) * 8, &label);
             }
             screen.refresh();
@@ -517,23 +650,51 @@ fn cmd_read(
     }
 }
 
-fn cmd_viz(_app_config: AppConfig, path: Option<PathBuf>) {
-    match path {
-        Some(p) => {
-            if !p.exists() {
-                error!("File not found: {}", p.display());
-                process::exit(1);
+fn cmd_viz(
+    _app_config: AppConfig,
+    packnames: Vec<String>,
+    destination: PathBuf,
+    run_config_path: Option<PathBuf>,
+) {
+    use mentabotix_rs::{export_structure, ArrowStyle};
+
+    let _run_config = run_config_path
+        .as_deref()
+        .map(load_run_config)
+        .unwrap_or_default();
+
+    let export_all = packnames.iter().any(|p| p == "all");
+    let packs: Vec<&str> = if export_all {
+        compile::all_handler_names().to_vec()
+    } else {
+        packnames.iter().map(|s| s.as_str()).collect()
+    };
+
+    if let Err(e) = fs::create_dir_all(&destination) {
+        error!("Failed to create {}: {}", destination.display(), e);
+        process::exit(1);
+    }
+
+    info!("Exporting {} pack(s) to {}", packs.len(), destination.display());
+
+    for &name in &packs {
+        match compile::get_handler(name) {
+            Some(handler) => {
+                let transitions = handler();
+                let filename = destination.join(format!("{}.puml", name));
+                match export_structure(&filename, &transitions, ArrowStyle::Down) {
+                    Ok(()) => println!("  ✓ {}", filename.display()),
+                    Err(e) => error!("  ✗ {}: {}", name, e),
+                }
             }
-            info!("Generating PlantUML visualization for: {}", p.display());
-            // In a full port, use mentabotix-rs to parse and generate UML
-            println!("PlantUML visualization not yet implemented.");
-            println!("File: {}", p.display());
-        }
-        None => {
-            error!("Please specify a file with -p/--path");
-            process::exit(1);
+            None => {
+                warn!("Unknown pack: {}", name);
+                info!("Available: {:?}", compile::all_handler_names());
+            }
         }
     }
+
+    println!("Done. {} file(s) written to {}", packs.len(), destination.display());
 }
 
 fn cmd_cmd(
@@ -545,7 +706,7 @@ fn cmd_cmd(
 ) {
     use bdmc_rs::controller::CloseLoopController;
 
-    let port_name = port.unwrap_or(app_config.motion_port);
+    let port_name = port.unwrap_or(app_config.motion.port.clone());
 
     let mut controller = match CloseLoopController::new(None, None, None, Some(&port_name)) {
         Ok(c) => c,
@@ -658,7 +819,7 @@ fn cmd_msg(app_config: AppConfig, port: Option<String>) {
     use bdmc_rs::controller::CloseLoopController;
     use std::io::Read;
 
-    let port_name = port.unwrap_or(app_config.motion_port);
+    let port_name = port.unwrap_or(app_config.motion.port.clone());
 
     let mut controller = match CloseLoopController::new(None, None, None, Some(&port_name)) {
         Ok(c) => c,
@@ -755,7 +916,7 @@ fn parse_color(name: &str) -> (u8, u8, u8) {
 fn cmd_breaker(app_config: AppConfig, port: Option<String>) {
     use bdmc_rs::controller::CloseLoopController;
 
-    let port_name = port.unwrap_or(app_config.motion_port);
+    let port_name = port.unwrap_or(app_config.motion.port.clone());
 
     let mut controller = match CloseLoopController::new(None, None, None, Some(&port_name)) {
         Ok(c) => c,
@@ -826,4 +987,145 @@ fn cmd_bench(_app_config: AppConfig, target: BenchTarget) {
             println!("  Sensor init: {elapsed:?}");
         }
     }
+}
+
+/// Detect AprilTags from camera feed and print tag IDs in real time.
+#[cfg(feature = "vision")]
+fn cmd_tag(_app_config: AppConfig, camera: Option<i32>, camera_res_mul: Option<f64>, interval: f64) {
+
+    let mut detector = match TagDetector::new(camera, camera_res_mul) {
+        Ok(d) => d,
+        Err(e) => {
+            error!("Failed to initialize tag detector: {}", e);
+            return;
+        }
+    };
+
+    match detector.apriltag_detect_start() {
+        Ok(_) => {}
+        Err(e) => {
+            error!("Camera is not ready, exiting...: {}", e);
+            return;
+        }
+    }
+
+    info!("Tag detection started. Press Ctrl+C to stop.");
+    loop {
+        thread::sleep(Duration::from_secs_f64(interval));
+        print!("\rTag: {}", detector.tag_id());
+        // Flush stdout so \r inline updates appear immediately
+        let _ = io::stdout().flush();
+    }
+}
+fn cmd_record(
+    _app_config: AppConfig,
+    output_dir: PathBuf,
+    interval: f64,
+    run_config_path: Option<PathBuf>,
+) {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::Arc;
+
+    let _run_config = run_config_path
+        .as_deref()
+        .map(load_run_config)
+        .unwrap_or_default();
+
+    if let Err(e) = fs::create_dir_all(&output_dir) {
+        error!("Failed to create output directory {}: {}", output_dir.display(), e);
+        process::exit(1);
+    }
+
+    println!("Press Enter to start recording, Ctrl+C to stop");
+    io::stdout().flush().unwrap();
+
+    // Wait for Enter to start
+    let mut buf = String::new();
+    io::stdin().read_line(&mut buf).unwrap();
+
+    // Try to initialize ADC hardware; fall back to simulated data
+    let mut sensors: Option<uptechstar_rs::OnBoardSensors> = None;
+    let hardware_available = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        uptechstar_rs::OnBoardSensors::default().adc_io_open()
+    }));
+
+    match hardware_available {
+        Ok(s) => {
+            info!("ADC hardware initialized");
+            sensors = Some(s);
+        }
+        Err(_) => {
+            println!("Sensor hardware not available — recording simulated data");
+            info!("Falling back to simulated ADC data");
+        }
+    }
+
+    // Use a background thread to detect Enter press as stop signal
+    let stop_flag = Arc::new(AtomicBool::new(false));
+    let stop_flag_clone = Arc::clone(&stop_flag);
+
+    let _stdin_thread = thread::spawn(move || {
+        let mut _buf = String::new();
+        let _ = io::stdin().read_line(&mut _buf);
+        stop_flag_clone.store(true, Ordering::Relaxed);
+    });
+
+    println!("Recording started. Press Enter to stop.");
+    let mut records: Vec<(f64, [u16; 10])> = Vec::new();
+    let start = Instant::now();
+
+    while !stop_flag.load(Ordering::Relaxed) {
+        let timestamp = start.elapsed().as_secs_f64();
+
+        let adc_values: [u16; 10] = if let Some(ref mut s) = sensors {
+            s.adc_all_channels()
+        } else {
+            // Simulated: simple ramp values based on timestamp
+            let t = timestamp as u16;
+            [t, t.wrapping_add(1), t.wrapping_add(2), t.wrapping_add(3),
+             t.wrapping_add(4), t.wrapping_add(5), t.wrapping_add(6),
+             t.wrapping_add(7), t.wrapping_add(8), t.wrapping_add(9)]
+        };
+
+        records.push((timestamp, adc_values));
+        thread::sleep(Duration::from_secs_f64(interval));
+    }
+
+    // Write CSV
+    let timestamp_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis();
+    let filename = format!("{}.csv", timestamp_ms);
+    let filepath = output_dir.join(&filename);
+
+    match fs::File::create(&filepath) {
+        Ok(mut f) => {
+            // Write header
+            let _ = writeln!(f, "Timestamp,ADC0,ADC1,ADC2,ADC3,ADC4,ADC5,ADC6,ADC7,ADC8,ADC9");
+
+            for (timestamp, adc) in &records {
+                let _ = writeln!(
+                    f,
+                    "{:.6},{},{},{},{},{},{},{},{},{},{}",
+                    timestamp,
+                    adc[0], adc[1], adc[2], adc[3], adc[4],
+                    adc[5], adc[6], adc[7], adc[8], adc[9],
+                );
+            }
+
+            println!("Wrote {} records to {}", records.len(), filepath.display());
+        }
+        Err(e) => {
+            error!("Failed to write CSV file {}: {}", filepath.display(), e);
+            process::exit(1);
+        }
+    }
+
+    // Cleanup ADC if hardware was initialized
+    if let Some(s) = sensors {
+        s.adc_io_close();
+    }
+
+    info!("Record command complete. {} records saved.", records.len());
 }
