@@ -14,7 +14,7 @@ kazu-rs/                  CLI + config + compile (15 CLI commands)
 
 ## Porting Status
 
-### CLI Commands (Python `cli.py` 68KB → Rust `main.rs` ~35KB)
+### CLI Commands (Python `cli.py` 68KB → Rust `src/{cli,config,commands/}` modularized)
 
 | Command | Status | Notes |
 |---------|--------|-------|
@@ -47,9 +47,9 @@ kazu-rs/                  CLI + config + compile (15 CLI commands)
 
 | Module (KB) | Rust status | Notes |
 |-------------|-------------|-------|
-| `cli.py` (68) | `main.rs` (~35) | 13/15 commands ported; 2 deferred (Python-only tools) |
+| `cli.py` (68) | `src/{cli,config,commands/}` | 13/15 commands ported; 2 deferred (Python-only tools) |
 | `compile.py` (68) | `compile.rs` (4) | 1/14 handlers real (`edge`); 13 stubs |
-| `config.py` (32) | inline in `main.rs` | `AppConfig`/`RunConfig` partial; `ContextVar`, `TagGroup`, `EdgeConfig`, `ScanConfig`, etc. not ported |
+| `config.py` (32) | `config.rs` | `AppConfig`/`RunConfig` partial; `ContextVar`, `TagGroup`, `EdgeConfig`, `ScanConfig`, etc. not ported |
 | `judgers.py` (47) | ❌ | 40+ `Breakers.*` predicate factories — none ported |
 | `constant.py` (10) | `constant.rs` | ✅ | CodeSign enums, Axis, Attitude, weight tables |
 | `signal_light.py` (6) | ❌ | LED registry + lifecycle |
