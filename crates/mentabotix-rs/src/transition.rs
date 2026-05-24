@@ -67,7 +67,7 @@ pub struct MovingTransition {
     /// Transition duration in seconds.
     pub duration: f64,
     /// Optional breaker function to interrupt the transition.
-    pub breaker: Option<Box<dyn Fn() -> BreakerResult + Send + Sync>>,
+    pub breaker: Option<std::sync::Arc<dyn Fn() -> BreakerResult + Send + Sync>>,
     /// Frequency to check for state transition (seconds).
     pub check_interval: f64,
     /// Starting state IDs for the transition.
@@ -98,7 +98,13 @@ impl MovingTransition {
     where
         F: Fn() -> BreakerResult + Send + Sync + 'static,
     {
-        self.breaker = Some(Box::new(breaker));
+        self.breaker = Some(std::sync::Arc::new(breaker));
+        self
+    }
+
+    /// Set the breaker from an existing Arc.
+    pub fn with_arc_breaker(mut self, breaker: std::sync::Arc<dyn Fn() -> BreakerResult + Send + Sync>) -> Self {
+        self.breaker = Some(breaker);
         self
     }
 
@@ -107,7 +113,7 @@ impl MovingTransition {
     where
         F: Fn() -> bool + Send + Sync + 'static,
     {
-        self.breaker = Some(Box::new(move || BreakerResult::Bool(breaker())));
+        self.breaker = Some(std::sync::Arc::new(move || BreakerResult::Bool(breaker())));
         self
     }
 

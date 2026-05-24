@@ -198,15 +198,16 @@ pub enum FixedAxis {
 static STATE_ID_COUNTER: AtomicUsize = AtomicUsize::new(0);
 
 /// Represents a movement state of the robot.
+#[derive(Clone)]
 pub struct MovingState {
     /// Unique state identifier.
     id: usize,
     /// Speed configuration for this state.
     speed_pattern: SpeedPattern,
     /// Functions to call before entering the state.
-    before_entering: Vec<Box<dyn Fn() + Send + Sync>>,
+    before_entering: Vec<std::sync::Arc<dyn Fn() + Send + Sync>>,
     /// Functions to call after exiting the state.
-    after_exiting: Vec<Box<dyn Fn() + Send + Sync>>,
+    after_exiting: Vec<std::sync::Arc<dyn Fn() + Send + Sync>>,
     /// Names of context variables used in dynamic speed expressions.
     used_context_vars: Vec<String>,
 }
@@ -384,23 +385,23 @@ impl MovingState {
 
     /// Add a hook to be called before entering the state.
     pub fn with_before_entering<F: Fn() + Send + Sync + 'static>(mut self, hook: F) -> Self {
-        self.before_entering.push(Box::new(hook));
+        self.before_entering.push(std::sync::Arc::new(hook));
         self
     }
 
     /// Add a hook to be called after exiting the state.
     pub fn with_after_exiting<F: Fn() + Send + Sync + 'static>(mut self, hook: F) -> Self {
-        self.after_exiting.push(Box::new(hook));
+        self.after_exiting.push(std::sync::Arc::new(hook));
         self
     }
 
     /// Get references to before-entering hooks.
-    pub fn before_entering(&self) -> &[Box<dyn Fn() + Send + Sync>] {
+    pub fn before_entering(&self) -> &[std::sync::Arc<dyn Fn() + Send + Sync>] {
         &self.before_entering
     }
 
     /// Get references to after-exiting hooks.
-    pub fn after_exiting(&self) -> &[Box<dyn Fn() + Send + Sync>] {
+    pub fn after_exiting(&self) -> &[std::sync::Arc<dyn Fn() + Send + Sync>] {
         &self.after_exiting
     }
 }
