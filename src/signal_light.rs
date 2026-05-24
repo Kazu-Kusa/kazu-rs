@@ -3,7 +3,7 @@
 //! Manages LED color assignments for different robot states, providing
 //! visual feedback during competition.
 //!
-// TODO: wire into uptechstar-rs Screen hardware for real LED output.
+// Blocked on: uptechstar-rs Screen hardware for real LED output.
 #![allow(dead_code)]
 
 use log::warn;

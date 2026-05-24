@@ -18,7 +18,7 @@ pub trait SensorData: Send + Sync {
     /// Read all IO channels (8 values, 0/1).
     fn io_all(&self) -> Vec<f64>;
     /// Read MPU Yaw (degrees).
-    // TODO: implement via uptechstar-rs MPU6500 when hardware is connected.
+    // Blocked on: MPU6500 hardware via uptechstar-rs.
     #[allow(dead_code)]
     fn mpu_yaw(&self) -> f64;
 }
@@ -208,8 +208,6 @@ impl Breakers {
     }
 
     /// Attack breaker using edge sensors directly.
-    // TODO: wire into the handler that needs this breaker.
-    #[allow(dead_code)]
     pub fn make_atk_breaker_with_edge_sensors(
         &self,
         app_config: &AppConfig,
@@ -233,8 +231,6 @@ impl Breakers {
     // ── Stage / align breakers ─────────────────────────────────
 
     /// Stage alignment breaker: checks front + rear obstacles.
-    // TODO: wire into the handler that needs this breaker.
-    #[allow(dead_code)]
     pub fn make_std_stage_align_breaker(
         &self,
         app_config: &AppConfig,
@@ -255,7 +251,7 @@ impl Breakers {
     }
 
     /// MPU-based stage alignment breaker.
-    // TODO: wire into the handler that needs this breaker.
+    // Blocked on: MPU6500 hardware.
     #[allow(dead_code)]
     pub fn make_stage_align_breaker_mpu(
         &self,
@@ -322,7 +318,6 @@ impl Breakers {
     }
 
     /// Left-right sides blocked breaker.
-    // TODO: wire into the handler that needs this breaker.
     pub fn make_lr_sides_blocked_breaker(
         &self,
         app_config: &AppConfig,
@@ -345,7 +340,7 @@ impl Breakers {
     // ── Direction alignment breakers ───────────────────────────
 
     /// MPU-based direction alignment breaker.
-    // TODO: wire into the handler that needs this breaker.
+    // Blocked on: MPU6500 hardware.
     #[allow(dead_code)]
     pub fn make_align_direction_breaker_mpu(
         &self,
@@ -362,8 +357,6 @@ impl Breakers {
     }
 
     /// Standard (non-MPU) direction alignment breaker.
-    // TODO: wire into the handler that needs this breaker.
-    #[allow(dead_code)]
     pub fn make_std_align_direction_breaker(
         &self,
         app_config: &AppConfig,
@@ -547,7 +540,6 @@ impl Breakers {
     }
 
     /// Gray ADC check for scan.
-    // TODO: wire into the handler that needs this breaker.
     pub fn make_check_gray_adc_for_scan_breaker(
         &self,
         app_config: &AppConfig,
@@ -565,8 +557,6 @@ impl Breakers {
     }
 
     /// On-stage checker using gray ADC.
-    // TODO: wire into the handler that needs this breaker.
-    #[allow(dead_code)]
     pub fn make_is_on_stage_breaker(
         &self,
         app_config: &AppConfig,

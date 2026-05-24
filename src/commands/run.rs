@@ -1,7 +1,7 @@
+use crate::assembly;
 use crate::cli::RunModeArg;
-use crate::compile;
 use crate::config::{load_run_config, AppConfig, ContextVar};
-use log::{error, info, warn};
+use log::{error, info};
 use mentabotix_rs::botix::Botix;
 use mentabotix_rs::state::MovingState;
 use std::path::PathBuf;
@@ -43,7 +43,7 @@ pub fn cmd_run(
         run_config.missions.off_stage.len()
     );
 
-    let controller = match CloseLoopController::new(None, Some(ContextVar::export_context()), None, effective_port.as_deref()) {
+    let mut controller = match CloseLoopController::new(None, Some(ContextVar::export_context()), None, effective_port.as_deref()) {
         Ok(c) => c,
         Err(e) => {
             error!("Failed to initialize controller: {}", e);
@@ -51,24 +51,35 @@ pub fn cmd_run(
         }
     };
 
+    // Insert context var defaults into the controller's context map
+    for (k, v) in ContextVar::export_context() {
+        controller.context_mut().insert(k, v);
+    }
+
     let mut all_states: Vec<MovingState> = Vec::new();
     let mut all_transitions = Vec::new();
 
-    let pack_names = match mode {
-        RunModeArg::Fgs | RunModeArg::Fgdl => &run_config.missions.boot,
-        RunModeArg::Ngs | RunModeArg::Ang => &run_config.missions.stage,
-        RunModeArg::Afg => &run_config.missions.off_stage,
-    };
-
-    for pack_name in pack_names {
-        match compile::get_handler(pack_name) {
-            Some(handler) => {
-                let transitions = handler(&app_config, &run_config);
-                all_transitions.extend(transitions);
-            }
-            None => {
-                warn!("Unknown pack: {}", pack_name);
-            }
+    match mode {
+        RunModeArg::Fgs => {
+            let (boot, stage) = assembly::assembly_fgs_schema(&app_config, &run_config);
+            all_transitions.extend(boot);
+            all_transitions.extend(stage);
+        }
+        RunModeArg::Fgdl => {
+            let transitions = assembly::assembly_fgdl_schema(&app_config, &run_config);
+            all_transitions.extend(transitions);
+        }
+        RunModeArg::Ngs => {
+            let transitions = assembly::assembly_ngs_schema(&app_config, &run_config);
+            all_transitions.extend(transitions);
+        }
+        RunModeArg::Afg => {
+            let transitions = assembly::assembly_afg_schema(&app_config, &run_config);
+            all_transitions.extend(transitions);
+        }
+        RunModeArg::Ang => {
+            let transitions = assembly::assembly_ang_schema(&app_config, &run_config);
+            all_transitions.extend(transitions);
         }
     }
 

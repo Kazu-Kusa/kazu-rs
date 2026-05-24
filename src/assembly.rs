@@ -3,8 +3,6 @@
 //! Wires compile handlers into complete missions for each run mode
 //! (FGS, NGS, AFG, ANG, FGDL).
 //!
-// TODO: wire into cmd_run for mode-based mission dispatch.
-#![allow(dead_code)]
 
 use crate::compile;
 use crate::config::{AppConfig, RunConfig};

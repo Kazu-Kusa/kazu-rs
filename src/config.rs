@@ -12,7 +12,6 @@ use std::path::{Path, PathBuf};
 // ── Context variable keys ─────────────────────────────────────
 
 /// Context variable names — mirrors Python `ContextVar` enum.
-// TODO: wire into controller context system for unclear_zone, gradient, etc.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum ContextVar {
     /// Previous salvo speed: (fl, rl, fr, rr)
@@ -27,7 +26,6 @@ pub enum ContextVar {
     UnclearZoneGray,
 }
 
-// TODO: wire into controller context system for unclear_zone, gradient, etc.
 impl ContextVar {
     /// Default value for each context variable.
     pub fn default_value(&self) -> serde_json::Value {

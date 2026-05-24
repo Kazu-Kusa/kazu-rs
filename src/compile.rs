@@ -230,7 +230,11 @@ pub fn make_surrounding_handler(
         app_config, run_config,
         &tag_group,
     );
-    let atk_breaker = breakers.make_std_atk_breaker(app_config, run_config);
+    let atk_breaker = if sc.atk_break_use_edge_sensors {
+        breakers.make_atk_breaker_with_edge_sensors(app_config, run_config)
+    } else {
+        breakers.make_std_atk_breaker(app_config, run_config)
+    };
     let edge_rear_breaker = breakers.make_std_edge_rear_breaker(app_config, run_config);
     let turn_to_front_breaker = breakers.make_std_turn_to_front_breaker(app_config, run_config);
 
@@ -540,19 +544,26 @@ pub fn make_fence_handler(
         })
     };
 
-    let lt_s = || make_turn_l(fc.direction_align_speed);
-    let rt_s = || make_turn_r(fc.direction_align_speed);
     let rnd_s = || make_turn_l(fc.stage_align_speed); // simplified
     let exit_s = || make_straight(fc.exit_corner_speed);
 
     let ft_t = || make_trans_no_breaker(fc.max_direction_align_duration);
-    let ht_t = || make_trans_no_breaker(fc.max_direction_align_duration);
     let exit_t = || make_trans_no_breaker(fc.max_exit_corner_duration);
     let lr_check_t = || make_trans(fc.max_direction_align_duration, Some(std::sync::Arc::clone(&lr_clear_breaker)));
+    let stage_align_breaker: Option<std::sync::Arc<dyn Fn() -> BreakerResult + Send + Sync>> =
+        if !fc.use_mpu_align_stage {
+            Some(breakers.make_std_stage_align_breaker(app_config, run_config))
+        } else {
+            None // Blocked on: MPU6500 hardware; no-op breaker for now
+        };
+    let st_align_t = || make_trans(fc.max_stage_align_duration, stage_align_breaker.clone());
 
     let abn = || halt_state();
+    let align_dir_output =
+        make_align_direction_handler(app_config, run_config, Some(abnormal_exit.clone()));
 
     let mut transitions_pool: Vec<MovingTransition> = Vec::new();
+    transitions_pool.extend(align_dir_output.transitions);
     let mut case_reg = CaseRegistry::<FenceCodeSign>::new();
 
     case_reg.register(FenceCodeSign::O_O_O_O, normal_exit.id()).ok();
@@ -576,20 +587,18 @@ pub fn make_fence_handler(
     let add_s = |s: MovingState| move |mut c: MovingChainComposer| { c.add_state(s); c };
     let add_t = |t: MovingTransition| move |mut c: MovingChainComposer| { c.add_transition(t); c };
 
-    fence_case!(case_reg, &[FenceCodeSign::X_O_O_O], [
-        add_s(rnd_s()), add_t(ft_t()), add_s(exit_s()), add_t(exit_t()), add_s(abn()),
+    fence_case!(case_reg, &[FenceCodeSign::X_O_O_O, FenceCodeSign::O_X_O_O], [
+        add_s(rnd_s()), add_t(st_align_t()), add_s(exit_s()), add_t(exit_t()), add_s(abn()),
     ]);
-    fence_case!(case_reg, &[FenceCodeSign::O_X_O_O], [
-        add_s(rnd_s()), add_t(ft_t()), add_s(exit_s()), add_t(exit_t()), add_s(abn()),
-    ]);
-    fence_case!(case_reg, &[FenceCodeSign::O_O_X_O, FenceCodeSign::X_O_X_O,
-        FenceCodeSign::O_X_X_O, FenceCodeSign::X_X_X_O], [
-        add_s(rt_s()), add_t(ht_t()), add_s(exit_s()), add_t(exit_t()), add_s(abn()),
-    ]);
-    fence_case!(case_reg, &[FenceCodeSign::O_O_O_X, FenceCodeSign::X_O_O_X,
-        FenceCodeSign::O_X_O_X, FenceCodeSign::X_X_O_X], [
-        add_s(lt_s()), add_t(ht_t()), add_s(exit_s()), add_t(exit_t()), add_s(abn()),
-    ]);
+    // Direction-alignment cases: delegate to align_direction_handler
+    for sign in &[
+        FenceCodeSign::O_O_X_O, FenceCodeSign::X_O_X_O,
+        FenceCodeSign::O_X_X_O, FenceCodeSign::X_X_X_O,
+        FenceCodeSign::O_O_O_X, FenceCodeSign::X_O_O_X,
+        FenceCodeSign::O_X_O_X, FenceCodeSign::X_X_O_X,
+    ] {
+        case_reg.register(*sign, align_dir_output.start_state.id()).ok();
+    }
     // LR-blocked cases: use lr_check_t to wait until at least one side clears
     fence_case!(case_reg, &[FenceCodeSign::O_O_X_X, FenceCodeSign::X_O_X_X,
         FenceCodeSign::O_X_X_X, FenceCodeSign::X_X_X_X], [
@@ -681,15 +690,14 @@ pub fn make_back_to_stage_handler(
     let bsc = &run_config.backstage;
     let end_state = end_state.unwrap_or_else(continues_state);
 
-    let edge_rear_breaker = breakers.make_std_edge_rear_breaker(app_config, run_config);
     let side_away_breaker = breakers.make_back_stage_side_away_breaker(app_config, run_config);
+    let on_stage_breaker = breakers.make_is_on_stage_breaker(app_config, run_config);
 
     let dash_s = || make_straight(bsc.dash_speed);
     let exit_s = || make_straight(bsc.exit_side_away_speed);
     let turn_s = || make_turn_l(bsc.turn_speed);
     let adv_s = || make_straight(bsc.small_advance_speed);
 
-    let dash_t = || make_trans(bsc.dash_duration, Some(edge_rear_breaker.clone()));
     let exit_t = || make_trans(bsc.exit_side_away_duration, Some(side_away_breaker));
     let turn_t = || make_trans_no_breaker(bsc.full_turn_duration);
     let adv_t = || make_trans_no_breaker(bsc.small_advance_duration);
@@ -698,16 +706,17 @@ pub fn make_back_to_stage_handler(
 
     let mut transitions_pool: Vec<MovingTransition> = Vec::new();
 
-    // Dash → end
+    // Dash → on-stage check: if on stage, go to end; else side-away recovery
     let mut c = MovingChainComposer::new();
     c.add_state(dash_s());
-    c.add_transition(dash_t());
-    c.add_state(end());
-    let (_, trans) = c.export();
-    transitions_pool.extend(trans);
 
-    // Side-away recovery
-    let mut c = MovingChainComposer::new();
+    let mut dash_trans = MovingTransition::new(bsc.dash_duration)
+        .unwrap()
+        .with_arc_breaker(on_stage_breaker.clone());
+    dash_trans.to_states.insert(BreakerResult::Bool(true), end_state.id());
+    dash_trans.to_states.insert(BreakerResult::Bool(false), exit_s().id());
+    c.add_transition(dash_trans);
+
     c.add_state(exit_s());
     c.add_transition(exit_t());
     c.add_state(turn_s());
@@ -886,8 +895,6 @@ pub fn make_rand_turn_handler(
 
 // ── Align direction handler ───────────────────────────────────
 
-// TODO: wire into fence_handler for MPU- or sensor-based direction alignment.
-#[allow(dead_code)]
 pub fn make_align_direction_handler(
     app_config: &AppConfig,
     run_config: &RunConfig,
@@ -1001,7 +1008,7 @@ pub fn make_on_stage_handler(
 
 // ── Unclear zone handler ──────────────────────────────────────
 
-// TODO: wire live SensorData for gray ADC read; currently uses fixed 0.0.
+// Blocked on: live ADC sensor access; currently uses fixed 0.0.
 /// Handler for unclear zone (between on-stage and off-stage).
 pub fn make_unclear_zone_handler(
     app_config: &AppConfig,
@@ -1011,7 +1018,7 @@ pub fn make_unclear_zone_handler(
     let sc = &run_config.stage;
     let normal_exit = normal_exit.unwrap_or_else(continues_state);
 
-    // TODO: read real gray ADC when Breakers has live SensorData wired.
+    // Blocked on: live ADC sensor access.
     // Currently uses fixed 0.0; unclear_zone_tolerance check is a no-op.
     let _gray_idx = app_config.sensor.gray_adc_index as usize;
     let tolerance = sc.unclear_zone_tolerance as f64;
@@ -1023,7 +1030,7 @@ pub fn make_unclear_zone_handler(
     // Hook: capture initial gray ADC value on entry.
     let recorded = std::sync::Arc::clone(&recorded_gray);
     let start_state = continues_state().with_before_entering(move || {
-        // TODO: read real gray ADC via sensor when live SensorData available.
+        // Blocked on: live ADC sensor access.
         if let Ok(mut guard) = recorded.lock() {
             *guard = Some(0.0);
         }
@@ -1033,7 +1040,7 @@ pub fn make_unclear_zone_handler(
     let recorded = std::sync::Arc::clone(&recorded_gray);
     let unclear_breaker: std::sync::Arc<dyn Fn() -> BreakerResult + Send + Sync> =
         std::sync::Arc::new(move || {
-            // TODO: read real gray ADC via sensor when live SensorData available.
+            // Blocked on: live ADC sensor access.
             let current_gray = 0.0_f64;
             let triggered = if let Ok(guard) = recorded.lock() {
                 match *guard {
