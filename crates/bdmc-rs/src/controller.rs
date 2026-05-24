@@ -3,7 +3,6 @@ use std::thread;
 use std::time::{Duration, Instant};
 use serialport::{SerialPort, DataBits, Parity, StopBits};
 use log::{debug, info, warn, error, trace};
-use crate::cmds;
 
 pub type Context = HashMap<String, serde_json::Value>;
 pub type Direction = i8; // 1 or -1
@@ -179,8 +178,8 @@ impl CloseLoopController {
     }
 
     /// Get reference to the serial port
-    pub fn serial(&self) -> Option<&Box<dyn SerialPort>> {
-        self.serial.as_ref()
+    pub fn serial(&self) -> Option<&dyn SerialPort> {
+        self.serial.as_deref()
     }
 
     /// Get mutable reference to the serial port
