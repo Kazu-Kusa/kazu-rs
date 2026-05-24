@@ -1,8 +1,10 @@
 //! Signal light (LED) registry — port of `kazu/signal_light.py`.
-#![allow(dead_code)]
 //!
 //! Manages LED color assignments for different robot states, providing
 //! visual feedback during competition.
+//!
+// TODO: wire into uptechstar-rs Screen hardware for real LED output.
+#![allow(dead_code)]
 
 use log::warn;
 use std::collections::HashMap;

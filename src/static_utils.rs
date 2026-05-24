@@ -1,5 +1,8 @@
 //! Utility functions — port of `kazu/static.py`.
+//!
+// TODO: wire make_query_table into make_surr_breaker for enemy/ally tag discrimination.
 #![allow(dead_code)]
+
 
 use crate::config::TagGroup;
 use std::collections::HashMap;

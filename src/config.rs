@@ -1,5 +1,5 @@
 //! Application and run configuration types for kazu-rs.
-#![allow(dead_code)]
+
 //!
 //! Port of `kazu/config.py`.
 
@@ -12,6 +12,8 @@ use std::path::{Path, PathBuf};
 // ── Context variable keys ─────────────────────────────────────
 
 /// Context variable names — mirrors Python `ContextVar` enum.
+// TODO: wire into controller context system for unclear_zone, gradient, etc.
+#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum ContextVar {
     /// Previous salvo speed: (fl, rl, fr, rr)
@@ -26,6 +28,8 @@ pub enum ContextVar {
     UnclearZoneGray,
 }
 
+// TODO: wire into controller context system for unclear_zone, gradient, etc.
+#[allow(dead_code)]
 impl ContextVar {
     /// Default value for each context variable.
     pub fn default_value(&self) -> serde_json::Value {
@@ -1007,10 +1011,11 @@ impl Default for RunConfig {
 pub fn default_port() -> String {
     "/dev/ttyUSB0".into()
 }
+// TODO: use in bdmc-rs serial port initialization.
+#[allow(dead_code)]
 pub fn default_baudrate() -> u32 {
     115200
 }
-
 pub fn load_app_config(path: &PathBuf) -> AppConfig {
     if path.exists() {
         info!("Loading config from {}", path.display());

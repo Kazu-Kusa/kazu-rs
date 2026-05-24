@@ -1,5 +1,5 @@
 //! Breaker predicate factories — port of `kazu/judgers.py`.
-#![allow(dead_code)]
+
 //!
 //! Each method on [`Breakers`] returns a closure suitable for
 //! [`MovingTransition::with_breaker`] that evaluates sensor data against
@@ -18,6 +18,8 @@ pub trait SensorData: Send + Sync {
     /// Read all IO channels (8 values, 0/1).
     fn io_all(&self) -> Vec<f64>;
     /// Read MPU Yaw (degrees).
+    // TODO: implement via uptechstar-rs MPU6500 when hardware is connected.
+    #[allow(dead_code)]
     fn mpu_yaw(&self) -> f64;
 }
 
@@ -206,6 +208,8 @@ impl Breakers {
     }
 
     /// Attack breaker using edge sensors directly.
+    // TODO: wire into the handler that needs this breaker.
+    #[allow(dead_code)]
     pub fn make_atk_breaker_with_edge_sensors(
         &self,
         app_config: &AppConfig,
@@ -229,6 +233,8 @@ impl Breakers {
     // ── Stage / align breakers ─────────────────────────────────
 
     /// Stage alignment breaker: checks front + rear obstacles.
+    // TODO: wire into the handler that needs this breaker.
+    #[allow(dead_code)]
     pub fn make_std_stage_align_breaker(
         &self,
         app_config: &AppConfig,
@@ -249,6 +255,8 @@ impl Breakers {
     }
 
     /// MPU-based stage alignment breaker.
+    // TODO: wire into the handler that needs this breaker.
+    #[allow(dead_code)]
     pub fn make_stage_align_breaker_mpu(
         &self,
         app_config: &AppConfig,
@@ -314,6 +322,8 @@ impl Breakers {
     }
 
     /// Left-right sides blocked breaker.
+    // TODO: wire into the handler that needs this breaker.
+    #[allow(dead_code)]
     pub fn make_lr_sides_blocked_breaker(
         &self,
         app_config: &AppConfig,
@@ -336,6 +346,8 @@ impl Breakers {
     // ── Direction alignment breakers ───────────────────────────
 
     /// MPU-based direction alignment breaker.
+    // TODO: wire into the handler that needs this breaker.
+    #[allow(dead_code)]
     pub fn make_align_direction_breaker_mpu(
         &self,
         _app_config: &AppConfig,
@@ -351,6 +363,8 @@ impl Breakers {
     }
 
     /// Standard (non-MPU) direction alignment breaker.
+    // TODO: wire into the handler that needs this breaker.
+    #[allow(dead_code)]
     pub fn make_std_align_direction_breaker(
         &self,
         app_config: &AppConfig,
@@ -415,6 +429,12 @@ impl Breakers {
     // ── Stage breakers ─────────────────────────────────────────
 
     /// Standard stage breaker: returns StageCodeSign discriminant (int).
+    ///
+    /// Uses weighted-sum logic (StageWeight: STAGE=1, REBOOT=2, UNCLEAR=4):
+    ///   0 = ON_STAGE, 1 = OFF_STAGE, 2 = ON+REBOOT, 3 = OFF+REBOOT,
+    ///   4 = UNCLEAR, 6 = UNCLEAR+REBOOT
+    // TODO: wire into the handler that needs this breaker.
+    #[allow(dead_code)]
     pub fn make_std_stage_breaker(
         &self,
         app_config: &AppConfig,
@@ -423,35 +443,29 @@ impl Breakers {
         let gray_idx = app_config.sensor.gray_adc_index as usize;
         let off_upper = run_config.stage.gray_adc_off_stage_upper_threshold as f64;
         let on_lower = run_config.stage.gray_adc_on_stage_lower_threshold as f64;
-        let _tolerance = run_config.stage.unclear_zone_tolerance as f64;
-        let gray_io_off = run_config.stage.gray_io_off_stage_case_value as f64;
-        let gray_io_l = app_config.sensor.gray_io_left_index as usize;
-        let gray_io_r = app_config.sensor.gray_io_right_index as usize;
+        let reboot_idx = app_config.sensor.reboot_button_index as usize;
+        let reboot_activate = run_config.boot.button_io_activate_case_value as f64;
         let sensor = Arc::clone(&self.sensor);
 
         Arc::new(move || {
             let adc = sensor.adc_all();
             let io = sensor.io_all();
             let gray_adc = *adc.get(gray_idx).unwrap_or(&0.0);
-            let gray_io_l = *io.get(gray_io_l).unwrap_or(&1.0);
-            let gray_io_r = *io.get(gray_io_r).unwrap_or(&1.0);
+            let reboot = *io.get(reboot_idx).unwrap_or(&1.0);
 
-            // StageCodeSign: 0=OFF, 1=ON, 2=UNCLEAR
-            let code = if gray_adc <= off_upper
-                || gray_io_l == gray_io_off
-                || gray_io_r == gray_io_off
-            {
-                0 // OFF stage
-            } else if gray_adc >= on_lower {
-                1 // ON stage
-            } else {
-                2 // UNCLEAR zone or borderline
-            };
-            BreakerResult::Int(code)
+            // StageWeight: STAGE=1, REBOOT=2, UNCLEAR=4
+            let off_stage = if gray_adc <= off_upper { 1i32 } else { 0 };
+            let unclear = if gray_adc > off_upper && gray_adc < on_lower { 4i32 } else { 0 };
+            let rebooted = if reboot == reboot_activate { 2i32 } else { 0 };
+
+            let code = off_stage + unclear + rebooted;
+            BreakerResult::Int(code as i64)
         })
     }
 
     /// Always-on stage breaker: always returns ON.
+    // TODO: wire into the handler that needs this breaker.
+    #[allow(dead_code)]
     pub fn make_always_on_stage_breaker(
         &self,
         _app_config: &AppConfig,
@@ -461,6 +475,8 @@ impl Breakers {
     }
 
     /// Always-off stage breaker: always returns OFF.
+    // TODO: wire into the handler that needs this breaker.
+    #[allow(dead_code)]
     pub fn make_always_off_stage_breaker(
         &self,
         _app_config: &AppConfig,
@@ -531,6 +547,8 @@ impl Breakers {
     }
 
     /// Gray ADC check for scan.
+    // TODO: wire into the handler that needs this breaker.
+    #[allow(dead_code)]
     pub fn make_check_gray_adc_for_scan_breaker(
         &self,
         app_config: &AppConfig,
@@ -548,6 +566,8 @@ impl Breakers {
     }
 
     /// On-stage checker using gray ADC.
+    // TODO: wire into the handler that needs this breaker.
+    #[allow(dead_code)]
     pub fn make_is_on_stage_breaker(
         &self,
         app_config: &AppConfig,

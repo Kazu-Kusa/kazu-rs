@@ -5,7 +5,7 @@
 //! the state machine for that behavior.
 //!
 //! Port of `kazu/compile.py`.
-#![allow(dead_code)]
+
 
 use crate::config::{AppConfig, RunConfig};
 use crate::constant::{
@@ -816,6 +816,8 @@ pub fn make_rand_turn_handler(
 
 // ── Align direction handler ───────────────────────────────────
 
+// TODO: wire into fence_handler for MPU- or sensor-based direction alignment.
+#[allow(dead_code)]
 pub fn make_align_direction_handler(
     app_config: &AppConfig,
     run_config: &RunConfig,
@@ -846,6 +848,8 @@ pub fn make_align_direction_handler(
 
 // ── On-stage handler ──────────────────────────────────────────
 
+// TODO: wire into NGS/FGS assembly for stage-transition logic.
+#[allow(dead_code)]
 pub fn make_on_stage_handler(
     app_config: &AppConfig,
     run_config: &RunConfig,
@@ -909,25 +913,62 @@ pub fn make_on_stage_handler(
 
 // ── Unclear zone handler ──────────────────────────────────────
 
+// TODO: wire live SensorData for gray ADC read; currently uses fixed 0.0.
+#[allow(dead_code)]
+/// Handler for unclear zone (between on-stage and off-stage).
 pub fn make_unclear_zone_handler(
-    _app_config: &AppConfig,
+    app_config: &AppConfig,
     run_config: &RunConfig,
     normal_exit: Option<MovingState>,
 ) -> HandlerOutput {
     let sc = &run_config.stage;
     let normal_exit = normal_exit.unwrap_or_else(continues_state);
 
-    let turn_s = || make_turn_l(sc.unclear_zone_turn_speed);
-    let turn_t = || make_trans_no_breaker(sc.unclear_zone_turn_duration);
+    // TODO: read real gray ADC when Breakers has live SensorData wired.
+    // Currently uses fixed 0.0; unclear_zone_tolerance check is a no-op.
+    let _gray_idx = app_config.sensor.gray_adc_index as usize;
+    let tolerance = sc.unclear_zone_tolerance as f64;
+
+    // Shared state: hook records initial gray, breaker compares against it.
+    let recorded_gray: std::sync::Arc<std::sync::Mutex<Option<f64>>> =
+        std::sync::Arc::new(std::sync::Mutex::new(None));
+
+    // Hook: capture initial gray ADC value on entry.
+    let recorded = std::sync::Arc::clone(&recorded_gray);
+    let start_state = continues_state().with_before_entering(move || {
+        // TODO: read real gray ADC via sensor when live SensorData available.
+        if let Ok(mut guard) = recorded.lock() {
+            *guard = Some(0.0);
+        }
+    });
+
+    // Breaker: exit unclear zone when gray ADC deviates beyond tolerance.
+    let recorded = std::sync::Arc::clone(&recorded_gray);
+    let unclear_breaker: std::sync::Arc<dyn Fn() -> BreakerResult + Send + Sync> =
+        std::sync::Arc::new(move || {
+            // TODO: read real gray ADC via sensor when live SensorData available.
+            let current_gray = 0.0_f64;
+            let triggered = if let Ok(guard) = recorded.lock() {
+                match *guard {
+                    Some(initial) => (current_gray - initial).abs() > tolerance,
+                    None => false,
+                }
+            } else {
+                false
+            };
+            BreakerResult::Bool(triggered)
+        });
+
+    let turn_t = || make_trans(sc.unclear_zone_turn_duration, Some(std::sync::Arc::clone(&unclear_breaker)));
 
     let mut c = MovingChainComposer::new();
-    c.add_state(turn_s());
-    c.add_transition(turn_t());
+    c.add_state(start_state.clone());       // records gray ADC via hook
+    c.add_transition(turn_t());            // turns until tolerance exceeded
     c.add_state(normal_exit.clone());
-    let (states, transitions) = c.export();
+    let (_, transitions) = c.export();
 
     HandlerOutput {
-        start_state: states.into_iter().next().unwrap_or_else(halt_state),
+        start_state,
         normal_exit,
         abnormal_exit: halt_state(),
         transitions,
