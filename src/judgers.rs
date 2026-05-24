@@ -323,7 +323,6 @@ impl Breakers {
 
     /// Left-right sides blocked breaker.
     // TODO: wire into the handler that needs this breaker.
-    #[allow(dead_code)]
     pub fn make_lr_sides_blocked_breaker(
         &self,
         app_config: &AppConfig,
@@ -492,7 +491,7 @@ impl Breakers {
         &self,
         app_config: &AppConfig,
         run_config: &RunConfig,
-        _tag_group: &TagGroup,
+        tag_group: &TagGroup,
     ) -> Arc<dyn Fn() -> BreakerResult + Send + Sync> {
         let front_th = run_config.surrounding.front_adc_lower_threshold as f64;
         let back_th = run_config.surrounding.back_adc_lower_threshold as f64;
@@ -507,6 +506,8 @@ impl Breakers {
         let fr_io = app_config.sensor.fr_io_index as usize;
         let rl_io = app_config.sensor.rl_io_index as usize;
         let rr_io = app_config.sensor.rr_io_index as usize;
+        let query_table = crate::static_utils::make_query_table(tag_group);
+        let ally_tag = tag_group.ally_tag;
         let sensor = Arc::clone(&self.sensor);
 
         Arc::new(move || {
@@ -520,10 +521,15 @@ impl Breakers {
                 || *io.get(rr_io).unwrap_or(&1.0) == io_obj;
             let left = *adc.get(left_idx).unwrap_or(&0.0) > left_th;
             let right = *adc.get(right_idx).unwrap_or(&0.0) > right_th;
-            let code = (front as i32)
+            let mut code = (front as i32)
                 + (rear as i32) * 2
                 + (left as i32) * 4
                 + (right as i32) * 8;
+            // Tag-group based classification: if front object detected and
+            // team has ally tags configured, classify as ally (conservative).
+            if front && matches!(query_table.get(&(ally_tag, false)), Some(&0)) {
+                code += 100; // FRONT_ALLY_BOX range
+            }
             BreakerResult::Int(code as i64)
         })
     }
@@ -548,7 +554,6 @@ impl Breakers {
 
     /// Gray ADC check for scan.
     // TODO: wire into the handler that needs this breaker.
-    #[allow(dead_code)]
     pub fn make_check_gray_adc_for_scan_breaker(
         &self,
         app_config: &AppConfig,

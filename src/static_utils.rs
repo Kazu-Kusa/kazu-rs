@@ -1,7 +1,6 @@
 //! Utility functions — port of `kazu/static.py`.
 //!
-// TODO: wire make_query_table into make_surr_breaker for enemy/ally tag discrimination.
-#![allow(dead_code)]
+// make_query_table is wired into make_surr_breaker for enemy/ally tag discrimination.
 
 
 use crate::config::TagGroup;
@@ -25,6 +24,7 @@ pub fn make_query_table(tag_group: &TagGroup) -> HashMap<(i32, bool), i32> {
     table
 }
 
+#[allow(dead_code)]
 /// Get a formatted timestamp string (YYYY-MM-DD-HH-MM-SS-ms).
 pub fn get_timestamp() -> String {
     // Simple stub — in production, use chrono crate

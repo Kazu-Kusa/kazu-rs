@@ -224,9 +224,11 @@ pub fn make_surrounding_handler(
 
     let sc = &run_config.surrounding;
 
+    let tag_group = crate::config::TagGroup::new(&run_config.team_color);
+    let _query_table = crate::static_utils::make_query_table(&tag_group);
     let surr_full_breaker = breakers.make_surr_breaker(
         app_config, run_config,
-        &crate::config::TagGroup::new(&run_config.team_color),
+        &tag_group,
     );
     let atk_breaker = breakers.make_std_atk_breaker(app_config, run_config);
     let edge_rear_breaker = breakers.make_std_edge_rear_breaker(app_config, run_config);
@@ -389,6 +391,7 @@ pub fn make_scan_handler(
 
     let scan_breaker = breakers.make_std_scan_breaker(app_config, run_config);
     let edge_rear_breaker = breakers.make_std_edge_rear_breaker(app_config, run_config);
+    let gray_adc_breaker = breakers.make_check_gray_adc_for_scan_breaker(app_config, run_config);
 
     let scan_s = || make_straight(scan_cfg.scan_speed);
     let fb_s = || make_straight(-scan_cfg.fall_back_speed);
@@ -460,6 +463,17 @@ pub fn make_scan_handler(
 
     // Assembly
     let mut composer = MovingChainComposer::new();
+    // Pre-check: if on stage (gray ADC high), skip scan entirely
+    composer.add_state(continues_state());
+
+    let mut pre_head = MovingTransition::new(run_config.perf.checking_duration)
+        .unwrap()
+        .with_arc_breaker(gray_adc_breaker.clone());
+    pre_head.to_states.insert(BreakerResult::Bool(true), end_state.id());
+    pre_head.to_states.insert(BreakerResult::Bool(false), scan_s().id());
+    composer.add_transition(pre_head);
+
+    // Scan flow: only reached if not on stage
     composer.add_state(scan_s());
 
     let to_states: HashMap<BreakerResult, usize> = case_reg
@@ -516,6 +530,15 @@ pub fn make_fence_handler(
 
     let fc = &run_config.fence;
     let fence_breaker = breakers.make_std_fence_breaker(app_config, run_config);
+    let lr_blocked_breaker = breakers.make_lr_sides_blocked_breaker(app_config, run_config);
+    // Invert: transition fires when at least one side clears (not both blocked)
+    let lr_clear_breaker: std::sync::Arc<dyn Fn() -> BreakerResult + Send + Sync> = {
+        let inner = std::sync::Arc::clone(&lr_blocked_breaker);
+        std::sync::Arc::new(move || match inner() {
+            BreakerResult::Bool(b) => BreakerResult::Bool(!b),
+            other => other,
+        })
+    };
 
     let lt_s = || make_turn_l(fc.direction_align_speed);
     let rt_s = || make_turn_r(fc.direction_align_speed);
@@ -525,6 +548,7 @@ pub fn make_fence_handler(
     let ft_t = || make_trans_no_breaker(fc.max_direction_align_duration);
     let ht_t = || make_trans_no_breaker(fc.max_direction_align_duration);
     let exit_t = || make_trans_no_breaker(fc.max_exit_corner_duration);
+    let lr_check_t = || make_trans(fc.max_direction_align_duration, Some(std::sync::Arc::clone(&lr_clear_breaker)));
 
     let abn = || halt_state();
 
@@ -566,9 +590,13 @@ pub fn make_fence_handler(
         FenceCodeSign::O_X_O_X, FenceCodeSign::X_X_O_X], [
         add_s(lt_s()), add_t(ht_t()), add_s(exit_s()), add_t(exit_t()), add_s(abn()),
     ]);
-    fence_case!(case_reg, &[FenceCodeSign::X_X_O_O, FenceCodeSign::O_O_X_X,
-        FenceCodeSign::X_O_X_X, FenceCodeSign::O_X_X_X,
-        FenceCodeSign::X_X_X_X, FenceCodeSign::X_X_O_X], [
+    // LR-blocked cases: use lr_check_t to wait until at least one side clears
+    fence_case!(case_reg, &[FenceCodeSign::O_O_X_X, FenceCodeSign::X_O_X_X,
+        FenceCodeSign::O_X_X_X, FenceCodeSign::X_X_X_X], [
+        add_s(rnd_s()), add_t(lr_check_t()), add_s(exit_s()), add_t(exit_t()), add_s(abn()),
+    ]);
+    // Non-LR-blocked multi-trigger: just random turn and exit
+    fence_case!(case_reg, &[FenceCodeSign::X_X_O_O, FenceCodeSign::X_X_O_X], [
         add_s(rnd_s()), add_t(ft_t()), add_s(exit_s()), add_t(exit_t()), add_s(abn()),
     ]);
 
