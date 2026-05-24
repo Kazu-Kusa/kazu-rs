@@ -13,7 +13,6 @@ use std::path::{Path, PathBuf};
 
 /// Context variable names — mirrors Python `ContextVar` enum.
 // TODO: wire into controller context system for unclear_zone, gradient, etc.
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum ContextVar {
     /// Previous salvo speed: (fl, rl, fr, rr)
@@ -29,7 +28,6 @@ pub enum ContextVar {
 }
 
 // TODO: wire into controller context system for unclear_zone, gradient, etc.
-#[allow(dead_code)]
 impl ContextVar {
     /// Default value for each context variable.
     pub fn default_value(&self) -> serde_json::Value {
@@ -1011,8 +1009,7 @@ impl Default for RunConfig {
 pub fn default_port() -> String {
     "/dev/ttyUSB0".into()
 }
-// TODO: use in bdmc-rs serial port initialization.
-#[allow(dead_code)]
+// Used by serial port initialization (ports.rs) and bdmc-rs controller setup.
 pub fn default_baudrate() -> u32 {
     115200
 }

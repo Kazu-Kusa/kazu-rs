@@ -432,8 +432,6 @@ impl Breakers {
     /// Uses weighted-sum logic (StageWeight: STAGE=1, REBOOT=2, UNCLEAR=4):
     ///   0 = ON_STAGE, 1 = OFF_STAGE, 2 = ON+REBOOT, 3 = OFF+REBOOT,
     ///   4 = UNCLEAR, 6 = UNCLEAR+REBOOT
-    // TODO: wire into the handler that needs this breaker.
-    #[allow(dead_code)]
     pub fn make_std_stage_breaker(
         &self,
         app_config: &AppConfig,
@@ -462,26 +460,22 @@ impl Breakers {
         })
     }
 
-    /// Always-on stage breaker: always returns ON.
-    // TODO: wire into the handler that needs this breaker.
-    #[allow(dead_code)]
+    /// Always-on stage breaker: always returns ON_STAGE (0).
     pub fn make_always_on_stage_breaker(
         &self,
         _app_config: &AppConfig,
         _run_config: &RunConfig,
     ) -> Arc<dyn Fn() -> BreakerResult + Send + Sync> {
-        Arc::new(|| BreakerResult::Int(1))
+        Arc::new(|| BreakerResult::Int(0))
     }
 
-    /// Always-off stage breaker: always returns OFF.
-    // TODO: wire into the handler that needs this breaker.
-    #[allow(dead_code)]
+    /// Always-off stage breaker: always returns OFF_STAGE (1).
     pub fn make_always_off_stage_breaker(
         &self,
         _app_config: &AppConfig,
         _run_config: &RunConfig,
     ) -> Arc<dyn Fn() -> BreakerResult + Send + Sync> {
-        Arc::new(|| BreakerResult::Int(0))
+        Arc::new(|| BreakerResult::Int(1))
     }
 
     // ── Surrounding breaker ────────────────────────────────────

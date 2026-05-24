@@ -23,10 +23,10 @@ use std::collections::HashMap;
 
 /// Result from a handler: the transitions defining the behavior graph
 /// plus the start, normal-exit, and abnormal-exit states.
-#[allow(dead_code)]
 pub struct HandlerOutput {
     pub start_state: MovingState,
     pub normal_exit: MovingState,
+    #[allow(dead_code)]
     pub abnormal_exit: MovingState,
     pub transitions: Vec<MovingTransition>,
 }
@@ -803,14 +803,56 @@ pub fn make_always_on_stage_battle_handler(
     app_config: &AppConfig,
     run_config: &RunConfig,
 ) -> HandlerOutput {
-    make_std_battle_handler(app_config, run_config)
+    let breakers = Breakers::null();
+    let always_on = breakers.make_always_on_stage_breaker(app_config, run_config);
+    let battle = make_std_battle_handler(app_config, run_config);
+
+    // Stage gate: always ON_STAGE (0) → enter battle loop
+    let gate_start = continues_state();
+    let mut gate_trans = MovingTransition::new(run_config.perf.checking_duration)
+        .unwrap()
+        .with_arc_breaker(always_on);
+    gate_trans.to_states.insert(BreakerResult::Int(0), battle.start_state.id()); // ON_STAGE
+    gate_trans.from_states.push(gate_start.id());
+
+    let mut transitions = battle.transitions;
+    transitions.push(gate_trans);
+
+    HandlerOutput {
+        start_state: gate_start,
+        normal_exit: halt_state(),
+        abnormal_exit: halt_state(),
+        transitions,
+    }
 }
 
 pub fn make_always_off_stage_battle_handler(
     app_config: &AppConfig,
     run_config: &RunConfig,
 ) -> HandlerOutput {
-    make_std_battle_handler(app_config, run_config)
+    let breakers = Breakers::null();
+    let always_off = breakers.make_always_off_stage_breaker(app_config, run_config);
+    let battle = make_std_battle_handler(app_config, run_config);
+
+    // Stage gate: always OFF_STAGE (1); maps both outcomes to battle
+    // so that off-stage mode still engages (preserving existing behavior).
+    let gate_start = continues_state();
+    let mut gate_trans = MovingTransition::new(run_config.perf.checking_duration)
+        .unwrap()
+        .with_arc_breaker(always_off);
+    gate_trans.to_states.insert(BreakerResult::Int(0), battle.start_state.id()); // ON_STAGE
+    gate_trans.to_states.insert(BreakerResult::Int(1), battle.start_state.id()); // OFF_STAGE
+    gate_trans.from_states.push(gate_start.id());
+
+    let mut transitions = battle.transitions;
+    transitions.push(gate_trans);
+
+    HandlerOutput {
+        start_state: gate_start,
+        normal_exit: halt_state(),
+        abnormal_exit: halt_state(),
+        transitions,
+    }
 }
 
 // ── Rand turn handler ─────────────────────────────────────────
@@ -876,8 +918,6 @@ pub fn make_align_direction_handler(
 
 // ── On-stage handler ──────────────────────────────────────────
 
-// TODO: wire into NGS/FGS assembly for stage-transition logic.
-#[allow(dead_code)]
 pub fn make_on_stage_handler(
     app_config: &AppConfig,
     run_config: &RunConfig,
@@ -891,27 +931,47 @@ pub fn make_on_stage_handler(
     let abnormal_exit = abnormal_exit.unwrap_or_else(halt_state);
 
     let stage_breaker = breakers.make_std_stage_breaker(app_config, run_config);
-    let sc = &run_config.stage;
 
-    let unclear_s = || make_turn_l(sc.unclear_zone_turn_speed);
-    let unclear_t = || make_trans_no_breaker(sc.unclear_zone_turn_duration);
+    // Sub-handlers: battle (ON_STAGE) and unclear zone recovery
+    let surrounding_output = make_surrounding_handler(app_config, run_config, None, None, None);
+    let unclear_output = make_unclear_zone_handler(app_config, run_config, None);
 
     let mut transitions_pool: Vec<MovingTransition> = Vec::new();
+
+    // Merge sub-handler transition graphs
+    transitions_pool.extend(surrounding_output.transitions);
+    transitions_pool.extend(unclear_output.transitions);
+
+    let loop_dur = run_config.perf.checking_duration;
+
+    // Loop-back: after battle ends (nothing detected), check stage again
+    let loop_surr = MovingTransition::new(loop_dur)
+        .unwrap()
+        .with_from_state(surrounding_output.normal_exit.id())
+        .with_single_to_state(start_state.id());
+    transitions_pool.push(loop_surr);
+
+    // Loop-back: after unclear zone cleared, check stage again
+    let loop_unclear = MovingTransition::new(loop_dur)
+        .unwrap()
+        .with_from_state(unclear_output.normal_exit.id())
+        .with_single_to_state(start_state.id());
+    transitions_pool.push(loop_unclear);
+
+    // Stage-check branching: map every StageCodeSign variant
     let mut case_reg = CaseRegistry::<StageCodeSign>::new();
 
+    // ON_STAGE (0) and ON_STAGE_REBOOT (2) → enter battle
+    case_reg.register(StageCodeSign::ON_STAGE, surrounding_output.start_state.id()).ok();
+    case_reg.register(StageCodeSign::ON_STAGE_REBOOT, surrounding_output.start_state.id()).ok();
+    // OFF_STAGE (1) and OFF_STAGE_REBOOT (3) → exit the loop
     case_reg.register(StageCodeSign::OFF_STAGE, normal_exit.id()).ok();
-    case_reg.register(StageCodeSign::ON_STAGE, normal_exit.id()).ok();
-    case_reg.register(StageCodeSign::UNCLEAR_ZONE, unclear_s().id()).ok();
+    case_reg.register(StageCodeSign::OFF_STAGE_REBOOT, normal_exit.id()).ok();
+    // UNCLEAR_ZONE (4) and UNCLEAR_ZONE_REBOOT (6) → unclear zone handler
+    case_reg.register(StageCodeSign::UNCLEAR_ZONE, unclear_output.start_state.id()).ok();
+    case_reg.register(StageCodeSign::UNCLEAR_ZONE_REBOOT, unclear_output.start_state.id()).ok();
 
-    // Unclear zone chain
-    let mut c = MovingChainComposer::new();
-    c.add_state(unclear_s());
-    c.add_transition(unclear_t());
-    c.add_state(normal_exit.clone());
-    let (_, trans) = c.export();
-    transitions_pool.extend(trans);
-
-    // Assembly
+    // Assemble: start_state → head transition (stage check with breaker)
     let mut composer = MovingChainComposer::new();
     composer.add_state(start_state.clone());
 
@@ -942,7 +1002,6 @@ pub fn make_on_stage_handler(
 // ── Unclear zone handler ──────────────────────────────────────
 
 // TODO: wire live SensorData for gray ADC read; currently uses fixed 0.0.
-#[allow(dead_code)]
 /// Handler for unclear zone (between on-stage and off-stage).
 pub fn make_unclear_zone_handler(
     app_config: &AppConfig,

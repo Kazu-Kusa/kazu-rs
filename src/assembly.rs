@@ -33,10 +33,15 @@ pub fn assembly_ngs_schema(
     app_config: &AppConfig,
     run_config: &RunConfig,
 ) -> Vec<MovingTransition> {
-    let stage_output = compile::make_on_stage_handler(
+    let output = compile::make_on_stage_handler(
         app_config, run_config, None, None, None,
     );
-    stage_output.transitions
+    // The handler builds a complete stage-check loop:
+    //   start_state → stage check → ON_STAGE battle / UNCLEAR recovery / OFF_STAGE exit
+    //   with loop-back transitions from battle and unclear back to the stage check.
+    // All transitions, plus start_state/normal_exit/abnormal_exit anchors, are
+    // embedded in the returned transition graph.
+    output.transitions
 }
 
 /// Assemble the Full-Game-Start (FGS) mission schema.
@@ -48,7 +53,19 @@ pub fn assembly_fgs_schema(
     let stage_output = compile::make_on_stage_handler(
         app_config, run_config, None, None, None,
     );
-    (boot_output.transitions, stage_output.transitions)
+
+    let mut boot_transitions = boot_output.transitions;
+    let stage_transitions = stage_output.transitions;
+
+    // Chain: boot normal_exit → stage start_state
+    let chain_dur = run_config.perf.checking_duration;
+    let chain_trans = MovingTransition::new(chain_dur)
+        .unwrap()
+        .with_from_state(boot_output.normal_exit.id())
+        .with_single_to_state(stage_output.start_state.id());
+    boot_transitions.push(chain_trans);
+
+    (boot_transitions, stage_transitions)
 }
 
 /// Assemble the Full-Game-Dash-Loop (FGDL) mission schema.
@@ -57,5 +74,15 @@ pub fn assembly_fgdl_schema(
     run_config: &RunConfig,
 ) -> Vec<MovingTransition> {
     let reboot_output = compile::make_reboot_handler(app_config, run_config, None);
-    reboot_output.transitions
+    let mut transitions = reboot_output.transitions;
+
+    // Self-loop: reboot normal_exit → reboot start_state
+    let loop_dur = run_config.perf.checking_duration;
+    let loop_trans = MovingTransition::new(loop_dur)
+        .unwrap()
+        .with_from_state(reboot_output.normal_exit.id())
+        .with_single_to_state(reboot_output.start_state.id());
+    transitions.push(loop_trans);
+
+    transitions
 }

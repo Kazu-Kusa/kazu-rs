@@ -1,4 +1,4 @@
-use crate::config::AppConfig;
+use crate::config::{default_baudrate, AppConfig};
 use std::time::Duration;
 
 pub fn cmd_ports(_app_config: AppConfig, check: bool, timeout: f64) {
@@ -12,7 +12,7 @@ pub fn cmd_ports(_app_config: AppConfig, check: bool, timeout: f64) {
     for port in &ports {
         if check {
             // Try to open to check availability
-            match serialport::new(port, 115200)
+            match serialport::new(port, default_baudrate())
                 .timeout(Duration::from_secs_f64(timeout))
                 .open()
             {

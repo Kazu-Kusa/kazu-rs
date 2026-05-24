@@ -1,6 +1,6 @@
 use crate::cli::RunModeArg;
 use crate::compile;
-use crate::config::{load_run_config, AppConfig};
+use crate::config::{load_run_config, AppConfig, ContextVar};
 use log::{error, info, warn};
 use mentabotix_rs::botix::Botix;
 use mentabotix_rs::state::MovingState;
@@ -43,7 +43,7 @@ pub fn cmd_run(
         run_config.missions.off_stage.len()
     );
 
-    let controller = match CloseLoopController::new(None, None, None, effective_port.as_deref()) {
+    let controller = match CloseLoopController::new(None, Some(ContextVar::export_context()), None, effective_port.as_deref()) {
         Ok(c) => c,
         Err(e) => {
             error!("Failed to initialize controller: {}", e);
