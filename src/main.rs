@@ -8,7 +8,10 @@ mod commands;
 mod compile;
 mod config;
 mod constant;
-
+mod judgers;
+mod assembly;
+mod signal_light;
+mod static_utils;
 use clap::Parser;
 use cli::{Cli, Commands};
 use config::load_app_config;

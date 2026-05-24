@@ -1,6 +1,9 @@
 use crate::cli::RunModeArg;
+use crate::compile;
 use crate::config::{load_run_config, AppConfig};
-use log::{error, info};
+use log::{error, info, warn};
+use mentabotix_rs::botix::Botix;
+use mentabotix_rs::state::MovingState;
 use std::path::PathBuf;
 
 #[allow(clippy::too_many_arguments)]
@@ -15,9 +18,7 @@ pub fn cmd_run(
     _team_color: Option<String>,
 ) {
     use bdmc_rs::controller::CloseLoopController;
-    use mentabotix_rs::{Botix, MovingState, MovingTransition};
 
-    // Load run config if provided.
     let run_config = run_config_path
         .as_deref()
         .map(load_run_config)
@@ -42,7 +43,6 @@ pub fn cmd_run(
         run_config.missions.off_stage.len()
     );
 
-    // Initialize controller.
     let controller = match CloseLoopController::new(None, None, None, effective_port.as_deref()) {
         Ok(c) => c,
         Err(e) => {
@@ -51,16 +51,42 @@ pub fn cmd_run(
         }
     };
 
-    // Build a simple demo mission: drive straight → halt.
-    let s_start = MovingState::straight(300);
-    let s_halt = MovingState::halt();
+    let mut all_states: Vec<MovingState> = Vec::new();
+    let mut all_transitions = Vec::new();
 
-    let t_drive = MovingTransition::new(2.0)
-        .unwrap()
-        .with_from_state(s_start.id())
-        .with_single_to_state(s_halt.id());
+    let pack_names = match mode {
+        RunModeArg::Fgs | RunModeArg::Fgdl => &run_config.missions.boot,
+        RunModeArg::Ngs | RunModeArg::Ang => &run_config.missions.stage,
+        RunModeArg::Afg => &run_config.missions.off_stage,
+    };
 
-    match Botix::build_full(controller, vec![s_start, s_halt], vec![t_drive]) {
+    for pack_name in pack_names {
+        match compile::get_handler(pack_name) {
+            Some(handler) => {
+                let transitions = handler(&app_config, &run_config);
+                all_transitions.extend(transitions);
+            }
+            None => {
+                warn!("Unknown pack: {}", pack_name);
+            }
+        }
+    }
+
+    if all_transitions.is_empty() {
+        info!("No transitions from handlers; using demo mission.");
+        let s_start = MovingState::straight(300);
+        let s_halt = MovingState::halt();
+        all_states.push(s_start);
+        all_states.push(s_halt);
+
+        let t_drive = mentabotix_rs::transition::MovingTransition::new(2.0)
+            .unwrap()
+            .with_from_state(all_states[0].id())
+            .with_single_to_state(all_states[1].id());
+        all_transitions.push(t_drive);
+    }
+
+    match Botix::build_full(controller, all_states, all_transitions) {
         Ok(mut botix) => {
             info!("Mission built. Executing...");
             match botix.execute() {

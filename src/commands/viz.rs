@@ -6,14 +6,14 @@ use std::path::PathBuf;
 use std::process;
 
 pub fn cmd_viz(
-    _app_config: AppConfig,
+    app_config: AppConfig,
     packnames: Vec<String>,
     destination: PathBuf,
     run_config_path: Option<PathBuf>,
 ) {
     use mentabotix_rs::{export_structure, ArrowStyle};
 
-    let _run_config = run_config_path
+    let run_config = run_config_path
         .as_deref()
         .map(load_run_config)
         .unwrap_or_default();
@@ -39,7 +39,7 @@ pub fn cmd_viz(
     for &name in &packs {
         match compile::get_handler(name) {
             Some(handler) => {
-                let transitions = handler();
+                let transitions = handler(&app_config, &run_config);
                 let filename = destination.join(format!("{}.puml", name));
                 match export_structure(&filename, &transitions, ArrowStyle::Down) {
                     Ok(()) => println!("  ✓ {}", filename.display()),
