@@ -139,7 +139,7 @@ impl StageWeight {
 /// Each variant corresponds to a combination of the four edge-weight regions
 /// (FL=1, FR=2, RL=4, RR=8).  Variant name `X_O_O_O` reads "FL triggered,
 /// others clear", etc.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(i32)]
 pub enum EdgeCodeSign {
     O_O_O_O = 0,
@@ -162,7 +162,7 @@ pub enum EdgeCodeSign {
 
 // ── SurroundingCodeSign ────────────────────────────────────────
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(i32)]
 pub enum SurroundingCodeSign {
     // ── base ──
@@ -218,7 +218,7 @@ pub enum SurroundingCodeSign {
 
 // ── StageCodeSign ──────────────────────────────────────────────
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(i32)]
 pub enum StageCodeSign {
     ON_STAGE = 0,
@@ -233,7 +233,7 @@ pub enum StageCodeSign {
 /// Bitmask enum for fence-sensor triggers.
 ///
 /// Weights: Front=1, Rear=2, Left=4, Right=8.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(i32)]
 pub enum FenceCodeSign {
     O_O_O_O = 0,
@@ -258,7 +258,7 @@ pub enum FenceCodeSign {
 /// Bitmask enum for scan-sensor triggers.
 ///
 /// Same weight/layout as [`FenceCodeSign`]: Front=1, Rear=2, Left=4, Right=8.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(i32)]
 pub enum ScanCodesign {
     O_O_O_O = 0,
