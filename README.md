@@ -47,16 +47,16 @@ kazu-rs/                  CLI + config + compile (15 CLI commands)
 | Module (KB) | Rust status | Notes |
 |-------------|-------------|-------|
 | `cli.py` (68) | `src/{cli,config,commands/}` | 13/15 commands ported; 2 deferred (Python-only tools) |
-| `compile.py` (68) | `compile.rs` (~35KB) | ⚠️ | 11/14 handlers fully wired; 3 deferred (align, on_stage, unclear_zone need sub-handler wiring) |
-| `config.py` (32) | `config.rs` (~28KB) | ⚠️ | All types ported; ContextVar not yet wired into controller context |
-| `judgers.py` (47) | `judgers.rs` (~24KB) | ⚠️ | 20+ Breakers ported; 11 not yet called from handlers (pre-ported for wire-up) |
+| `compile.py` (68) | `compile.rs` (~35KB) | ⚠️ | 12/14 handlers fully wired; 2 deferred (align needs fence integration, unclear_zone needs live SensorData) |
+| `config.py` (32) | `config.rs` (~28KB) | ✅ | All types ported; ContextVar + default_baudrate wired |
+| `judgers.py` (47) | `judgers.rs` (~24KB) | ✅ | 20+ Breakers ported; core set wired into handlers (edge, surr, scan, fence, stage) |
 | `constant.py` (10) | `constant.rs` | ✅ | CodeSign enums, Axis, Attitude, weight tables |
 | `signal_light.py` (6) | `signal_light.rs` | ⚠️ | SigLightRegistry ported; TODO hardware output via uptechstar-rs Screen |
 | `hardwares.py` (4) | partial | `SamplerIndexes` partially in `uptechstar-rs`; singleton wiring not ported |
-| `assembly.py` (5) | `assembly.rs` | ⚠️ | All 5 schema functions ported; TODO wire into cmd_run dispatch |
+| `assembly.py` (5) | `assembly.rs` | ✅ | All 5 schema functions wired with multi-phase mission logic |
 | `callbacks.py` (10) | ❌ | CLI validation callbacks (click-rs specific) |
 | `checkers.py` (3) | partial | Inline in `cmd_check` |
-| `static.py` (2) | `static_utils.rs` | ⚠️ | Ported; TODO wire make_query_table into surr_breaker |
+| `static.py` (2) | `static_utils.rs` | ✅ | `make_query_table` wired into surr_breaker for tag discrimination |
 | `logger.py` (1) | N/A | Replaced by `log` crate |
 | `visualize.py` (1) | N/A | Inline in `cmd_viz` |
 
