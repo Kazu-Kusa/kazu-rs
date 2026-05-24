@@ -1,502 +1,609 @@
 use bdmc_rs::controller::CloseLoopController;
-use std::collections::{HashMap, HashSet};
-use std::fmt;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::collections::{HashMap, HashSet, VecDeque};
+use std::time::{Duration, Instant};
 
-/// Motor speed configuration for different control patterns
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum SpeedPattern {
-    /// All wheels same speed
-    Full(i32),
-    /// Left and right wheels different speeds
-    LeftRight { left: i32, right: i32 },
-    /// Individual wheel control
-    Individual {
-        front_left: i32,
-        rear_left: i32,
-        front_right: i32,
-        rear_right: i32,
-    },
-}
+use crate::state::MovingState;
+use crate::transition::{BreakerResult, MovingTransition};
 
-impl SpeedPattern {
-    /// Convert to array of individual wheel speeds
-    pub fn to_array(&self) -> [i32; 4] {
-        match *self {
-            SpeedPattern::Full(speed) => [speed; 4],
-            SpeedPattern::LeftRight { left, right } => [left, left, right, right],
-            SpeedPattern::Individual {
-                front_left,
-                rear_left,
-                front_right,
-                rear_right,
-            } => [front_left, rear_left, front_right, rear_right],
-        }
-    }
-
-    /// Get the pattern type
-    pub fn pattern_type(&self) -> PatternType {
-        match self {
-            SpeedPattern::Full(_) => PatternType::Full,
-            SpeedPattern::LeftRight { .. } => PatternType::LeftRight,
-            SpeedPattern::Individual { .. } => PatternType::Individual,
-        }
-    }
-}
-
-/// Three types of control commands
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum PatternType {
-    Full,
-    LeftRight,
-    Individual,
-}
-
-/// Arrow styles for UML generation
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ArrowStyle {
-    Down,
-    Left,
-    Right,
-    Up,
-}
-
-impl ArrowStyle {
-    /// Create a new ArrowStyle from string
-    pub fn from_str(direction: &str) -> Result<Self, &'static str> {
-        match direction {
-            "up" => Ok(ArrowStyle::Up),
-            "down" => Ok(ArrowStyle::Down),
-            "left" => Ok(ArrowStyle::Left),
-            "right" => Ok(ArrowStyle::Right),
-            _ => Err("Must be one of [up, down, left, right]"),
-        }
-    }
-
-    /// Get the string representation of the arrow
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            ArrowStyle::Down => "-->",
-            ArrowStyle::Left => "-left->",
-            ArrowStyle::Right => "-right->",
-            ArrowStyle::Up => "-up->",
-        }
-    }
-}
-
-impl Default for ArrowStyle {
-    fn default() -> Self {
-        ArrowStyle::Down
-    }
-}
-
-impl fmt::Display for ArrowStyle {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.as_str())
-    }
-}
-
-/// Configuration for movement calculations
-#[derive(Debug, Clone)]
-pub struct MovementConfig {
-    /// The width of the track (distance between wheels with same axis)
-    pub track_width: f64,
-    /// The multiplier for diagonal speeds (designed for drift movement)
-    pub diagonal_multiplier: f64,
-}
-
-impl Default for MovementConfig {
-    fn default() -> Self {
-        Self {
-            track_width: 100.0,
-            diagonal_multiplier: 1.53,
-        }
-    }
-}
-
-/// Turn direction
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TurnDirection {
-    Left,
-    Right,
-}
-
-/// Fixed axis for drift movement
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum FixedAxis {
-    FrontLeft,
-    RearLeft,
-    RearRight,
-    FrontRight,
-}
-
-/// Counter for generating unique state IDs
-static STATE_ID_COUNTER: AtomicUsize = AtomicUsize::new(0);
-
-/// Represents a movement state of the robot
-pub struct MovingState {
-    /// Unique state identifier
-    id: usize,
-    /// Speed configuration for this state
-    speed_pattern: SpeedPattern,
-    /// Functions to call before entering the state
-    before_entering: Vec<Box<dyn Fn() + Send + Sync>>,
-    /// Functions to call after exiting the state
-    after_exiting: Vec<Box<dyn Fn() + Send + Sync>>,
-}
-
-impl MovingState {
-    /// Create a new moving state with the given speed pattern
-    pub fn new(speed_pattern: SpeedPattern) -> Self {
-        Self {
-            id: STATE_ID_COUNTER.fetch_add(1, Ordering::SeqCst),
-            speed_pattern,
-            before_entering: Vec::new(),
-            after_exiting: Vec::new(),
-        }
-    }
-
-    /// Create a halted state (all wheels stop)
-    pub fn halt() -> Self {
-        Self::new(SpeedPattern::Full(0))
-    }
-
-    /// Create a straight movement state
-    pub fn straight(speed: i32) -> Self {
-        Self::new(SpeedPattern::Full(speed))
-    }
-
-    /// Create a turn state
-    pub fn turn(direction: TurnDirection, speed: i32) -> Self {
-        match direction {
-            TurnDirection::Left => Self::new(SpeedPattern::LeftRight {
-                left: -speed,
-                right: speed,
-            }),
-            TurnDirection::Right => Self::new(SpeedPattern::LeftRight {
-                left: speed,
-                right: -speed,
-            }),
-        }
-    }
-
-    /// Create a differential movement state
-    pub fn differential(direction: TurnDirection, radius: f64, outer_speed: i32) -> Self {
-        let config = MovementConfig::default();
-        let inner_speed = (radius / (radius + config.track_width) * outer_speed as f64) as i32;
-
-        match direction {
-            TurnDirection::Left => Self::new(SpeedPattern::LeftRight {
-                left: inner_speed,
-                right: outer_speed,
-            }),
-            TurnDirection::Right => Self::new(SpeedPattern::LeftRight {
-                left: outer_speed,
-                right: inner_speed,
-            }),
-        }
-    }
-
-    /// Create a drift state
-    pub fn drift(fixed_axis: FixedAxis, speed: i32) -> Self {
-        let config = MovementConfig::default();
-        let diagonal_speed = (speed as f64 * config.diagonal_multiplier) as i32;
-
-        let pattern = match fixed_axis {
-            FixedAxis::FrontLeft => SpeedPattern::Individual {
-                front_left: 0,
-                rear_left: speed,
-                front_right: diagonal_speed,
-                rear_right: speed,
-            },
-            FixedAxis::RearLeft => SpeedPattern::Individual {
-                front_left: speed,
-                rear_left: 0,
-                front_right: speed,
-                rear_right: diagonal_speed,
-            },
-            FixedAxis::RearRight => SpeedPattern::Individual {
-                front_left: diagonal_speed,
-                rear_left: speed,
-                front_right: 0,
-                rear_right: speed,
-            },
-            FixedAxis::FrontRight => SpeedPattern::Individual {
-                front_left: speed,
-                rear_left: diagonal_speed,
-                front_right: speed,
-                rear_right: 0,
-            },
-        };
-
-        Self::new(pattern)
-    }
-
-    /// Get the state identifier
-    pub fn id(&self) -> usize {
-        self.id
-    }
-
-    /// Get the speed pattern
-    pub fn speed_pattern(&self) -> SpeedPattern {
-        self.speed_pattern
-    }
-
-    /// Get the pattern type
-    pub fn pattern_type(&self) -> PatternType {
-        self.speed_pattern.pattern_type()
-    }
-
-    /// Get speed values as an array
-    pub fn speeds(&self) -> [i32; 4] {
-        self.speed_pattern.to_array()
-    }
-
-    /// Apply a multiplier to the speeds
-    pub fn with_multiplier(mut self, multiplier: f64) -> Self {
-        self.speed_pattern = match self.speed_pattern {
-            SpeedPattern::Full(speed) => SpeedPattern::Full((speed as f64 * multiplier) as i32),
-            SpeedPattern::LeftRight { left, right } => SpeedPattern::LeftRight {
-                left: (left as f64 * multiplier) as i32,
-                right: (right as f64 * multiplier) as i32,
-            },
-            SpeedPattern::Individual {
-                front_left,
-                rear_left,
-                front_right,
-                rear_right,
-            } => SpeedPattern::Individual {
-                front_left: (front_left as f64 * multiplier) as i32,
-                rear_left: (rear_left as f64 * multiplier) as i32,
-                front_right: (front_right as f64 * multiplier) as i32,
-                rear_right: (rear_right as f64 * multiplier) as i32,
-            },
-        };
-        self
-    }
-}
-
-impl fmt::Display for MovingState {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self.speed_pattern {
-            SpeedPattern::Full(speed) => write!(f, "State{}({})", self.id, speed),
-            SpeedPattern::LeftRight { left, right } => {
-                write!(f, "State{}({}, {})", self.id, left, right)
-            }
-            SpeedPattern::Individual {
-                front_left,
-                rear_left,
-                front_right,
-                rear_right,
-            } => write!(
-                f,
-                "State{}([{}, {}, {}, {}])",
-                self.id, front_left, rear_left, front_right, rear_right
-            ),
-        }
-    }
-}
-
-impl PartialEq for MovingState {
-    fn eq(&self, other: &Self) -> bool {
-        self.id == other.id
-    }
-}
-
-impl Eq for MovingState {}
-
-impl std::hash::Hash for MovingState {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.id.hash(state);
-    }
-}
-
-/// Counter for generating unique transition IDs
-static TRANSITION_ID_COUNTER: AtomicUsize = AtomicUsize::new(0);
-
-/// Represents a transition between movement states
-pub struct MovingTransition {
-    /// Unique transition identifier
-    id: usize,
-    /// Transition duration in seconds
-    pub duration: f64,
-    /// Optional breaker function to interrupt transition
-    pub breaker: Option<Box<dyn Fn() -> bool + Send + Sync>>,
-    /// Frequency to check for state transition
-    pub check_interval: f64,
-    /// Starting states for the transition
-    pub from_states: Vec<MovingState>,
-    /// Destination states mapped to keys
-    pub to_states: HashMap<String, MovingState>,
-}
-
-impl MovingTransition {
-    /// Create a new MovingTransition
-    pub fn new(duration: f64) -> Result<Self, &'static str> {
-        if duration < 0.0 {
-            return Err("Duration cannot be negative");
-        }
-
-        Ok(Self {
-            id: TRANSITION_ID_COUNTER.fetch_add(1, Ordering::SeqCst),
-            duration,
-            breaker: None,
-            check_interval: 0.01,
-            from_states: Vec::new(),
-            to_states: HashMap::new(),
-        })
-    }
-
-    /// Set the breaker function
-    pub fn with_breaker<F>(mut self, breaker: F) -> Self
-    where
-        F: Fn() -> bool + Send + Sync + 'static,
-    {
-        self.breaker = Some(Box::new(breaker));
-        self
-    }
-
-    /// Set the check interval
-    pub fn with_check_interval(mut self, interval: f64) -> Self {
-        self.check_interval = interval;
-        self
-    }
-
-    /// Add a from state
-    pub fn with_from_state(mut self, state: MovingState) -> Self {
-        self.from_states.push(state);
-        self
-    }
-
-    /// Add a to state with key
-    pub fn with_to_state(mut self, key: impl Into<String>, state: MovingState) -> Self {
-        self.to_states.insert(key.into(), state);
-        self
-    }
-
-    /// Get the transition identifier
-    pub fn id(&self) -> usize {
-        self.id
-    }
-}
-
-impl fmt::Display for MovingTransition {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Transition{}({:.3}s)", self.id, self.duration)
-    }
-}
-
-impl PartialEq for MovingTransition {
-    fn eq(&self, other: &Self) -> bool {
-        self.id == other.id
-    }
-}
-
-impl Eq for MovingTransition {}
-
-impl std::hash::Hash for MovingTransition {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.id.hash(state);
-    }
-}
-
-/// Main Botix struct for managing states and transitions
+/// Main Botix struct for managing states and transitions.
+///
+/// Stores states and transitions in registries keyed by their IDs.
+/// The graph is built from a flat list of transitions via `build_full()`,
+/// which validates structure and computes adjacency maps.
 pub struct Botix {
-    /// The bot's controller
+    /// The bot's controller.
     controller: CloseLoopController,
-    /// Token pool containing transitions
-    transitions: Vec<MovingTransition>,
+    /// State registry: state_id → MovingState.
+    states: HashMap<usize, MovingState>,
+    /// Transition registry: transition_id → MovingTransition.
+    transitions: HashMap<usize, MovingTransition>,
+    /// Forward adjacency: state_id → transition_id (unique per state).
+    forward_edge: HashMap<usize, usize>,
+    /// Reverse adjacency: state_id ← [transition_ids] that target it.
+    incoming_edges: HashMap<usize, Vec<usize>>,
+    /// The unique start state ID.
+    start_state: usize,
 }
 
 impl Botix {
-    /// Create a new Botix instance
-    pub fn new(controller: CloseLoopController) -> Self {
-        Self {
+    /// Build a Botix graph from controller, states, and transitions.
+    ///
+    /// Validates:
+    /// - Each state appears in at most one transition's `from_states`.
+    /// - Exactly one start state (indegree 0).
+    /// - All states are reachable from the start state.
+    /// - All referenced state IDs exist in the state registry.
+    pub fn build_full(
+        controller: CloseLoopController,
+        states: Vec<MovingState>,
+        transitions: Vec<MovingTransition>,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
+        let mut state_map: HashMap<usize, MovingState> = HashMap::new();
+        let mut forward_edge: HashMap<usize, usize> = HashMap::new();
+        let mut incoming_edges: HashMap<usize, Vec<usize>> = HashMap::new();
+        let mut trans_map: HashMap<usize, MovingTransition> = HashMap::new();
+        let mut state_forward_count: HashMap<usize, usize> = HashMap::new();
+
+        // Index states.
+        for state in states {
+            let sid = state.id();
+            if state_map.contains_key(&sid) {
+                return Err(format!("Duplicate state ID: {}", sid).into());
+            }
+            incoming_edges.entry(sid).or_default();
+            state_map.insert(sid, state);
+        }
+
+        // First pass: read adjacency info from transitions (by reference).
+        for t in &transitions {
+            let tid = t.id();
+            if trans_map.contains_key(&tid) {
+                return Err(format!("Duplicate transition ID: {}", tid).into());
+            }
+
+            // Validate all referenced state IDs exist.
+            for &from_id in &t.from_states {
+                if !state_map.contains_key(&from_id) {
+                    return Err(format!(
+                        "Transition {} references unknown from_state {}",
+                        tid, from_id
+                    )
+                    .into());
+                }
+                *state_forward_count.entry(from_id).or_insert(0) += 1;
+                if state_forward_count[&from_id] > 1 {
+                    return Err(format!(
+                        "State {} connects to multiple forward transitions. \
+                         Branching must be inside a single MovingTransition.",
+                        from_id
+                    )
+                    .into());
+                }
+                forward_edge.insert(from_id, tid);
+            }
+
+            for &to_id in t.to_states.values() {
+                if !state_map.contains_key(&to_id) {
+                    return Err(format!(
+                        "Transition {} references unknown to_state {}",
+                        tid, to_id
+                    )
+                    .into());
+                }
+                incoming_edges.entry(to_id).or_default().push(tid);
+            }
+        }
+
+        // Determine start state(s).
+        let start_candidates: Vec<usize> = state_map
+            .keys()
+            .filter(|id| incoming_edges.get(id).is_none_or(|v| v.is_empty()))
+            .copied()
+            .collect();
+
+        if start_candidates.len() != 1 {
+            return Err(format!(
+                "Must have exactly one start state (indegree 0), found {}: {:?}",
+                start_candidates.len(),
+                start_candidates
+            )
+            .into());
+        }
+
+        let start_state = start_candidates[0];
+
+        // Second pass: move transitions into the registry.
+        for t in transitions {
+            trans_map.insert(t.id(), t);
+        }
+
+        // Verify accessibility: all states reachable from start.
+        let reachable = Self::compute_reachable_set(
+            &state_map,
+            &forward_edge,
+            &trans_map,
+            start_state,
+        );
+        let all_ids: HashSet<usize> = state_map.keys().copied().collect();
+        let unreachable: Vec<usize> = all_ids.difference(&reachable).copied().collect();
+        if !unreachable.is_empty() {
+            return Err(format!(
+                "States not reachable from start state {}: {:?}",
+                start_state, unreachable
+            )
+            .into());
+        }
+
+        Ok(Self {
             controller,
-            transitions: Vec::new(),
+            states: state_map,
+            transitions: trans_map,
+            forward_edge,
+            incoming_edges,
+            start_state,
+        })
+    }
+
+    /// Compute the set of states reachable from `start` via forward edges.
+    fn compute_reachable_set(
+        states: &HashMap<usize, MovingState>,
+        forward_edge: &HashMap<usize, usize>,
+        transitions: &HashMap<usize, MovingTransition>,
+        start: usize,
+    ) -> HashSet<usize> {
+        let mut visited = HashSet::new();
+        let mut queue = VecDeque::new();
+        queue.push_back(start);
+
+        while let Some(current) = queue.pop_front() {
+            if !visited.insert(current) {
+                continue;
+            }
+            // Follow forward edge.
+            if let Some(trans) = forward_edge.get(&current)
+                .and_then(|&tid| transitions.get(&tid))
+            {
+                for &next_id in trans.to_states.values() {
+                    if states.contains_key(&next_id) && !visited.contains(&next_id) {
+                        queue.push_back(next_id);
+                    }
+                }
+            }
+        }
+
+        visited
+    }
+
+    /// Execute the state machine directly — no JIT, no codegen.
+    ///
+    /// Walks the graph starting from `start_state`, calling controller methods,
+    /// hooks, and evaluating breakers at each step. Loops until an end state
+    /// is reached (no forward edge).
+    pub fn execute(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        let mut current = self.start_state;
+
+        loop {
+            let outcome = self.execute_one_state(current)?;
+
+            match outcome {
+                TransitionOutcome::NextState(next) => current = next,
+                TransitionOutcome::End => break,
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Execute a single state and its forward transition.
+    /// Returns the outcome (next state or end).
+    fn execute_one_state(
+        &mut self,
+        state_id: usize,
+    ) -> Result<TransitionOutcome, Box<dyn std::error::Error>> {
+        // We need to access both states and transitions. Since execute()
+        // takes &mut self, we can't borrow self.states and self.transitions
+        // simultaneously. We use indices to avoid the borrow conflict.
+
+        // Call before_entering hooks.
+        if let Some(state) = self.states.get(&state_id) {
+            for hook in state.before_entering() {
+                hook();
+            }
+        }
+
+        // Resolve and set speeds.
+        let speeds = {
+            let state = self.states.get(&state_id).ok_or_else(|| {
+                format!("State {} not found in registry", state_id)
+            })?;
+            state.resolve_speeds(self.controller.context())
+        };
+        let speeds_f64: Vec<f64> = speeds.iter().map(|&s| s as f64).collect();
+        self.controller.set_motors_speed(&speeds_f64)?;
+
+        // Call after_exiting hooks.
+        if let Some(state) = self.states.get(&state_id) {
+            for hook in state.after_exiting() {
+                hook();
+            }
+        }
+
+        // Determine next state.
+        match self.forward_edge.get(&state_id) {
+            None => Ok(TransitionOutcome::End),
+            Some(&trans_id) => {
+                // Clone the necessary info to avoid borrow issues with breaker closures.
+                let duration;
+                let check_interval;
+                let to_states: HashMap<BreakerResult, usize>;
+                let has_breaker: bool;
+
+                {
+                    let trans = self.transitions.get(&trans_id).ok_or_else(|| {
+                        format!("Transition {} not found in registry", trans_id)
+                    })?;
+                    duration = trans.duration;
+                    check_interval = trans.check_interval;
+                    to_states = trans.to_states.clone();
+                    has_breaker = trans.breaker.is_some();
+                }
+
+                if !has_breaker {
+                    // Simple delay.
+                    std::thread::sleep(Duration::from_secs_f64(duration));
+                    let next = to_states.values().next().copied().ok_or_else(|| {
+                        format!("Transition {} has no to_states", trans_id)
+                    })?;
+                    Ok(TransitionOutcome::NextState(next))
+                } else {
+                    // Poll breaker until duration expires or non-placeholder result.
+                    let start = Instant::now();
+                    let max_dur = Duration::from_secs_f64(duration);
+                    let check_dur = Duration::from_secs_f64(check_interval.max(0.001));
+
+                    // We call the breaker directly through the stored reference.
+                    let _breaker_fn = self.transitions.get(&trans_id)
+                        .and_then(|t| t.breaker.as_ref())
+                        .ok_or_else(|| format!("Breaker not found for transition {}", trans_id))?;
+
+                    // We need to call the breaker, but we can't hold a reference
+                    // while also needing to access other fields. Since breaker is
+                    // Fn() (not FnMut), we can call it through the reference.
+                    // But we can't hold the immutable borrow of self.transitions
+                    // across the loop while also calling the breaker.
+
+                    // Strategy: extract the breaker result through repeated calls.
+                    // Since the breaker is behind a shared reference in the HashMap,
+                    // and we need to call it multiple times, we use a different approach:
+                    // we call the breaker, drop the borrow, sleep, repeat.
+
+                    let last_result;
+                    loop {
+                        let result = {
+                            let trans = self.transitions.get(&trans_id).unwrap();
+                            trans.breaker.as_ref().unwrap()()
+                        };
+                        if result != BreakerResult::Placeholder {
+                            last_result = result;
+                            break;
+                        }
+                        if start.elapsed() >= max_dur {
+                            last_result = result;
+                            break;
+                        }
+                        let remaining = max_dur.saturating_sub(start.elapsed());
+                        std::thread::sleep(check_dur.min(remaining));
+                    }
+
+                    let next = to_states.get(&last_result).copied().ok_or_else(|| {
+                        format!(
+                            "Transition {}: no matching to_state for breaker result {:?}",
+                            trans_id, last_result
+                        )
+                    })?;
+                    Ok(TransitionOutcome::NextState(next))
+                }
+            }
         }
     }
 
-    /// Get a reference to the controller
+    /// Wait for `duration` seconds, polling `breaker` at `check_interval`.
+    /// Returns the first non-Placeholder breaker result, or the last result
+    /// if the duration elapses without a break.
+    pub fn wait_with_breaker(
+        duration_sec: f64,
+        check_interval: f64,
+        breaker: &(dyn Fn() -> BreakerResult + Send + Sync),
+    ) -> BreakerResult {
+        let start = Instant::now();
+        let max_duration = Duration::from_secs_f64(duration_sec);
+        let check_dur = Duration::from_secs_f64(check_interval.max(0.001));
+
+        // Initial check.
+        let mut last_result = breaker();
+        if last_result != BreakerResult::Placeholder {
+            return last_result;
+        }
+
+        while start.elapsed() < max_duration {
+            let remaining = max_duration.saturating_sub(start.elapsed());
+            std::thread::sleep(check_dur.min(remaining));
+            last_result = breaker();
+            if last_result != BreakerResult::Placeholder {
+                return last_result;
+            }
+        }
+
+        last_result
+    }
+
+    /// Validate the graph structure.
+    pub fn validate(&self) -> Result<(), String> {
+        if self.states.is_empty() {
+            return Err("No states in graph".into());
+        }
+        if self.transitions.is_empty() {
+            return Err("No transitions in graph".into());
+        }
+        Ok(())
+    }
+
+    /// Find loops in the graph via DFS.
+    pub fn find_loops(&self) -> Vec<Vec<usize>> {
+        let mut loops = Vec::new();
+        let mut visited = HashSet::new();
+        let mut path_stack: Vec<usize> = Vec::new();
+        let mut path_set: HashSet<usize> = HashSet::new();
+
+        // Use an explicit stack-based DFS to avoid recursion limits.
+        // Each stack frame: (state_id, iterator_position).
+        type Frame = (usize, Vec<usize>, usize); // (state, neighbors, next_index)
+        let mut stack: Vec<Frame> = Vec::new();
+
+        // Initialize with start state's neighbors.
+        let init_neighbors: Vec<usize> = self
+            .forward_edge
+            .get(&self.start_state)
+            .and_then(|&tid| self.transitions.get(&tid))
+            .map(|t| t.to_states.values().copied().collect())
+            .unwrap_or_default();
+
+        path_stack.push(self.start_state);
+        path_set.insert(self.start_state);
+        visited.insert(self.start_state);
+        stack.push((self.start_state, init_neighbors, 0));
+
+        'outer: while let Some((current, ref neighbors, mut idx)) = stack.pop() {
+            // Restore path to this point.
+            while path_stack.last() != Some(&current) {
+                let popped = path_stack.pop().unwrap();
+                path_set.remove(&popped);
+            }
+
+            while idx < neighbors.len() {
+                let next = neighbors[idx];
+                idx += 1;
+
+                if path_set.contains(&next) {
+                    // Loop detected.
+                    let loop_start = path_stack.iter().position(|&s| s == next).unwrap();
+                    loops.push(path_stack[loop_start..].to_vec());
+                    continue;
+                }
+
+                if visited.contains(&next) {
+                    continue;
+                }
+
+                // Push current frame with updated index.
+                stack.push((current, neighbors.clone(), idx));
+                visited.insert(next);
+                path_stack.push(next);
+                path_set.insert(next);
+
+                // Get next state's neighbors.
+                let next_neighbors: Vec<usize> = self
+                    .forward_edge
+                    .get(&next)
+                    .and_then(|&tid| self.transitions.get(&tid))
+                    .map(|t| t.to_states.values().copied().collect())
+                    .unwrap_or_default();
+
+                stack.push((next, next_neighbors, 0));
+                continue 'outer;
+            }
+
+            // All neighbors explored — backtrack.
+            path_stack.pop();
+            path_set.remove(&current);
+        }
+
+        loops
+    }
+
+    /// Get the IDs of start states (states with indegree 0).
+    pub fn start_states(&self) -> HashSet<usize> {
+        self.states
+            .keys()
+            .filter(|id| self.incoming_edges.get(id).is_none_or(|v| v.is_empty()))
+            .copied()
+            .collect()
+    }
+
+    /// Get the IDs of end states (states with no forward edge).
+    pub fn end_states(&self) -> HashSet<usize> {
+        self.states
+            .keys()
+            .filter(|id| !self.forward_edge.contains_key(id))
+            .copied()
+            .collect()
+    }
+
+    /// Get a reference to the controller.
     pub fn controller(&self) -> &CloseLoopController {
         &self.controller
     }
 
-    /// Get a mutable reference to the controller
+    /// Get a mutable reference to the controller.
     pub fn controller_mut(&mut self) -> &mut CloseLoopController {
         &mut self.controller
     }
 
-    /// Add a transition to the pool
-    pub fn add_transition(&mut self, transition: MovingTransition) -> &mut Self {
-        self.transitions.push(transition);
-        self
+    /// Get the start state ID.
+    pub fn start_state_id(&self) -> usize {
+        self.start_state
     }
 
-    /// Remove a transition from the pool
-    pub fn remove_transition(&mut self, transition_id: usize) -> &mut Self {
-        self.transitions.retain(|t| t.id() != transition_id);
-        self
+    /// Get a reference to a state by ID.
+    pub fn get_state(&self, id: usize) -> Option<&MovingState> {
+        self.states.get(&id)
     }
 
-    /// Extend the pool with multiple transitions
-    pub fn extend_transitions(&mut self, transitions: Vec<MovingTransition>) -> &mut Self {
-        self.transitions.extend(transitions);
-        self
+    /// Get a reference to a transition by ID.
+    pub fn get_transition(&self, id: usize) -> Option<&MovingTransition> {
+        self.transitions.get(&id)
     }
 
-    /// Clear all transitions from the pool
-    pub fn clear_transitions(&mut self) -> &mut Self {
-        self.transitions.clear();
-        self
+    /// Get total number of states.
+    pub fn state_count(&self) -> usize {
+        self.states.len()
     }
 
-    /// Get start states from transition pool
-    pub fn start_states(&self) -> HashSet<usize> {
-        let mut states_indegree: HashMap<usize, i32> = HashMap::new();
+    /// Get total number of transitions.
+    pub fn transition_count(&self) -> usize {
+        self.transitions.len()
+    }
+}
 
-        for transition in &self.transitions {
-            for state in &transition.from_states {
-                states_indegree.entry(state.id()).or_insert(0);
-            }
-            for state in transition.to_states.values() {
-                *states_indegree.entry(state.id()).or_insert(0) += 1;
-            }
-        }
+enum TransitionOutcome {
+    NextState(usize),
+    End,
+}
 
-        states_indegree
-            .iter()
-            .filter(|&(_, &indegree)| indegree == 0)
-            .map(|(&state_id, _)| state_id)
-            .collect()
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::state::MovingState;
+    use crate::transition::{BreakerResult, MovingTransition};
+
+    fn make_linear_chain() -> (Vec<MovingState>, Vec<MovingTransition>) {
+        let s0 = MovingState::straight(100);
+        let s1 = MovingState::straight(200);
+        let s2 = MovingState::halt();
+
+        let s0_id = s0.id();
+        let s1_id = s1.id();
+        let s2_id = s2.id();
+
+        let t0 = MovingTransition::new(0.5)
+            .unwrap()
+            .with_from_state(s0_id)
+            .with_single_to_state(s1_id);
+
+        let t1 = MovingTransition::new(0.3)
+            .unwrap()
+            .with_from_state(s1_id)
+            .with_single_to_state(s2_id);
+
+        (vec![s0, s1, s2], vec![t0, t1])
     }
 
-    /// Get end states from transition pool
-    pub fn end_states(&self) -> HashSet<usize> {
-        let mut states_outdegree: HashMap<usize, i32> = HashMap::new();
-
-        for transition in &self.transitions {
-            for state in &transition.from_states {
-                *states_outdegree.entry(state.id()).or_insert(0) += 1;
-            }
-            for state in transition.to_states.values() {
-                states_outdegree.entry(state.id()).or_insert(0);
-            }
-        }
-
-        states_outdegree
-            .iter()
-            .filter(|&(_, &outdegree)| outdegree == 0)
-            .map(|(&state_id, _)| state_id)
-            .collect()
+    #[test]
+    fn test_build_linear_chain() {
+        let (states, transitions) = make_linear_chain();
+        let controller = CloseLoopController::new(None, None, None, None).unwrap();
+        let botix = Botix::build_full(controller, states, transitions);
+        assert!(botix.is_ok(), "Build failed: {:?}", botix.err());
+        let botix = botix.unwrap();
+        assert_eq!(botix.start_states().len(), 1);
+        assert_eq!(botix.end_states().len(), 1);
+        assert_eq!(botix.state_count(), 3);
+        assert_eq!(botix.transition_count(), 2);
     }
 
-    /// Validate the transition pool structure
-    pub fn validate(&self) -> Result<(), &'static str> {
-        let start_states = self.start_states();
-        if start_states.len() != 1 {
-            return Err("Must have exactly one start state");
-        }
-        Ok(())
+    #[test]
+    fn test_build_duplicate_from_state() {
+        let s0 = MovingState::straight(100);
+        let s1 = MovingState::halt();
+        let s2 = MovingState::straight(200);
+
+        let s0_id = s0.id();
+        let s1_id = s1.id();
+        let s2_id = s2.id();
+
+        let t0 = MovingTransition::new(0.5)
+            .unwrap()
+            .with_from_state(s0_id)
+            .with_single_to_state(s1_id);
+
+        let t1 = MovingTransition::new(0.5)
+            .unwrap()
+            .with_from_state(s0_id)
+            .with_single_to_state(s2_id);
+
+        let controller = CloseLoopController::new(None, None, None, None).unwrap();
+        let result = Botix::build_full(controller, vec![s0, s1, s2], vec![t0, t1]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_build_multiple_starts() {
+        let s0 = MovingState::straight(100);
+        let s1 = MovingState::straight(200);
+
+        let controller = CloseLoopController::new(None, None, None, None).unwrap();
+        let result = Botix::build_full(controller, vec![s0, s1], vec![]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_wait_with_breaker_immediate() {
+        let breaker = || BreakerResult::Bool(true);
+        let result = Botix::wait_with_breaker(1.0, 0.01, &breaker);
+        assert_eq!(result, BreakerResult::Bool(true));
+    }
+
+    #[test]
+    fn test_wait_with_breaker_timeout() {
+        let breaker = || BreakerResult::Placeholder;
+        let result = Botix::wait_with_breaker(0.05, 0.01, &breaker);
+        assert_eq!(result, BreakerResult::Placeholder);
+    }
+
+    #[test]
+    fn test_find_loops_no_loop() {
+        let (states, transitions) = make_linear_chain();
+        let controller = CloseLoopController::new(None, None, None, None).unwrap();
+        let botix = Botix::build_full(controller, states, transitions).unwrap();
+        let loops = botix.find_loops();
+        assert!(loops.is_empty(), "Expected no loops, got {:?}", loops);
+    }
+
+    #[test]
+    fn test_loop_rejected() {
+        let s0 = MovingState::straight(100);
+        let s1 = MovingState::straight(200);
+        let s2 = MovingState::straight(300);
+
+        let s0_id = s0.id();
+        let s1_id = s1.id();
+        let s2_id = s2.id();
+
+        let t0 = MovingTransition::new(0.5)
+            .unwrap()
+            .with_from_state(s0_id)
+            .with_to_state(BreakerResult::Bool(true), s1_id)
+            .with_to_state(BreakerResult::Bool(false), s2_id);
+
+        // s2 points back to s0 creating a loop — rejected.
+        let t1 = MovingTransition::new(0.3)
+            .unwrap()
+            .with_from_state(s2_id)
+            .with_single_to_state(s0_id);
+
+        let controller = CloseLoopController::new(None, None, None, None).unwrap();
+        // Build should fail because s0 has incoming edge from t1.
+        let result = Botix::build_full(controller, vec![s0, s1, s2], vec![t0, t1]);
+        assert!(result.is_err());
     }
 }

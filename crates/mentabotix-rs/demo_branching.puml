@@ -1,0 +1,25 @@
+@startuml
+[*] --> s100
+
+state "State(600)" as s600
+state "State(100)" as s100
+state "State(500)" as s500
+state "State(200)" as s200
+state "State(300)" as s300
+state "State(400)" as s400
+
+state choice_t12 <<choice>>
+s100 --> choice_t12 : 1.000s
+choice_t12 --> s200 : Int(1)
+choice_t12 --> s400 : Int(3)
+choice_t12 --> s300 : Int(2)
+state choice_t13 <<choice>>
+s400 --> choice_t13 : 0.500s
+choice_t13 --> s600 : Int(2)
+choice_t13 --> s500 : Int(1)
+
+s600 --> [*]
+s200 --> [*]
+s300 --> [*]
+s500 --> [*]
+@enduml

@@ -6,3 +6,5 @@ edition = "2024"
 [dependencies]
 plantuml-server-client-rs = "0.6.2"
 bdmc-rs = { path = "../bdmc-rs" }
+rand = "0.8"
+serde_json = "1.0"

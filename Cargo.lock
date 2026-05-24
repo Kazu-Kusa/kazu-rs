@@ -1010,6 +1010,7 @@ dependencies = [
  "log",
  "mentabotix-rs",
  "rayon",
+ "serde",
  "serialport",
  "toml 1.1.2+spec-1.1.0",
  "upic-rs",
@@ -1174,6 +1175,8 @@ version = "0.1.0"
 dependencies = [
  "bdmc-rs",
  "plantuml-server-client-rs",
+ "rand 0.8.6",
+ "serde_json",
 ]
 
 [[package]]
