@@ -93,7 +93,7 @@ pub fn get_handler(name: &str) -> Option<HandlerFn> {
             make_search_handler(ac, rc, None, None, None).transitions
         }),
         "fence" => Some(|ac, rc| {
-            make_fence_handler(ac, rc, None, None, None).transitions
+            make_fence_handler(ac, rc, None, None).transitions
         }),
         "boot" => Some(|ac, rc| {
             make_reboot_handler(ac, rc, None).transitions
