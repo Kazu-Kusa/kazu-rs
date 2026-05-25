@@ -106,6 +106,31 @@ pub fn make_surrounding_handler(
         SurroundingCodeSign::FRONT_ENEMY_BOX_BEHIND_OBJECT,
         SurroundingCodeSign::FRONT_ALLY_BOX_BEHIND_OBJECT,
         SurroundingCodeSign::FRONT_NEUTRAL_BOX_BEHIND_OBJECT,
+        SurroundingCodeSign::FRONT_ALLY_BOX_LEFT_RIGHT_BEHIND_OBJECTS,
+        SurroundingCodeSign::FRONT_NEUTRAL_BOX_LEFT_RIGHT_BEHIND_OBJECTS,
+        SurroundingCodeSign::FRONT_ENEMY_BOX_LEFT_RIGHT_BEHIND_OBJECTS,
+    ], [
+        add_s(rnd()), add_t(ftt()), add_s(aec()), add_t(aect()),
+        add_s(efb()), add_t(efbt()), add_s(rnd()), add_t(ftt()), add_s(abn()),
+    ]);
+
+    // LEFT_BEHIND_OBJECTS: random spd turn left
+    surr_case!(case_reg, &[
+        SurroundingCodeSign::LEFT_BEHIND_OBJECTS,
+        SurroundingCodeSign::FRONT_ENEMY_BOX_LEFT_BEHIND_OBJECTS,
+        SurroundingCodeSign::FRONT_ALLY_BOX_LEFT_BEHIND_OBJECTS,
+        SurroundingCodeSign::FRONT_NEUTRAL_BOX_LEFT_BEHIND_OBJECTS,
+    ], [
+        add_s(rnd()), add_t(ftt()), add_s(aec()), add_t(aect()),
+        add_s(efb()), add_t(efbt()), add_s(rnd()), add_t(ftt()), add_s(abn()),
+    ]);
+
+    // RIGHT_BEHIND_OBJECTS: random spd turn right
+    surr_case!(case_reg, &[
+        SurroundingCodeSign::RIGHT_BEHIND_OBJECTS,
+        SurroundingCodeSign::FRONT_ENEMY_BOX_RIGHT_BEHIND_OBJECTS,
+        SurroundingCodeSign::FRONT_ALLY_BOX_RIGHT_BEHIND_OBJECTS,
+        SurroundingCodeSign::FRONT_NEUTRAL_BOX_RIGHT_BEHIND_OBJECTS,
     ], [
         add_s(rnd()), add_t(ftt()), add_s(aec()), add_t(aect()),
         add_s(efb()), add_t(efbt()), add_s(rnd()), add_t(ftt()), add_s(abn()),
@@ -114,6 +139,9 @@ pub fn make_surrounding_handler(
     // Left object
     surr_case!(case_reg, &[
         SurroundingCodeSign::LEFT_OBJECT,
+        SurroundingCodeSign::FRONT_ENEMY_BOX_LEFT_OBJECT,
+        SurroundingCodeSign::FRONT_ALLY_BOX_LEFT_OBJECT,
+        SurroundingCodeSign::FRONT_NEUTRAL_BOX_LEFT_OBJECT,
     ], [
         add_s(lt()), add_t(htt()), add_s(aec()), add_t(aect()),
         add_s(efb()), add_t(efbt()), add_s(rnd()), add_t(ftt()), add_s(abn()),
@@ -122,6 +150,9 @@ pub fn make_surrounding_handler(
     // Right object
     surr_case!(case_reg, &[
         SurroundingCodeSign::RIGHT_OBJECT,
+        SurroundingCodeSign::FRONT_ENEMY_BOX_RIGHT_OBJECT,
+        SurroundingCodeSign::FRONT_ALLY_BOX_RIGHT_OBJECT,
+        SurroundingCodeSign::FRONT_NEUTRAL_BOX_RIGHT_OBJECT,
     ], [
         add_s(rt()), add_t(htt()), add_s(aec()), add_t(aect()),
         add_s(efb()), add_t(efbt()), add_s(rnd()), add_t(ftt()), add_s(abn()),
@@ -130,6 +161,9 @@ pub fn make_surrounding_handler(
     // Left+right objects
     surr_case!(case_reg, &[
         SurroundingCodeSign::LEFT_RIGHT_OBJECTS,
+        SurroundingCodeSign::FRONT_ENEMY_BOX_LEFT_RIGHT_OBJECTS,
+        SurroundingCodeSign::FRONT_ALLY_BOX_LEFT_RIGHT_OBJECTS,
+        SurroundingCodeSign::FRONT_NEUTRAL_BOX_LEFT_RIGHT_OBJECTS,
     ], [
         add_s(rnd()), add_t(htt()), add_s(aec()), add_t(aect()),
         add_s(efb()), add_t(efbt()), add_s(rnd()), add_t(ftt()), add_s(abn()),
