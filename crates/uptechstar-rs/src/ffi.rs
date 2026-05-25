@@ -1,30 +1,78 @@
 //! FFI bindings to libuptech.so.
 //!
 //! On Linux (target platform: Raspberry Pi ARM HF), loads the shared library at runtime.
-//! On all other platforms, provides no-op stubs so the crate compiles and can be tested.
+//! The `.so` is embedded in the binary via `include_bytes!` and extracted to a temp
+//! cache directory on first use. On all other platforms, provides no-op stubs so the
+//! crate compiles and can be tested.
+//!
+//! # Bundling
+//!
+//! The binary is self-contained — the `.so` is compiled into the `.rodata` section.
+//! At first call, it is extracted to `<temp_dir>/uptechstar-<hash>/libuptech.so` and
+//! loaded via `libloading`. The hash is derived from the `.so` content, so cache
+//! entries are automatically versioned.
 
 #[cfg(target_os = "linux")]
 mod real {
     use libloading::{Library, Symbol};
-    use log::{debug, error, info};
+    use log::{debug, error, info, warn};
+    use std::hash::{Hash, Hasher};
+    use std::path::PathBuf;
     use std::sync::OnceLock;
+
+    /// The bundled `libuptech.so` compiled into the binary.
+    static EMBEDDED_SO: &[u8] = include_bytes!("../lib/libuptech.so");
 
     static LIB: OnceLock<Option<Library>> = OnceLock::new();
 
+    /// Path in the OS temp directory for the extracted `.so`, keyed by content hash.
+    fn embedded_cache_path() -> PathBuf {
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        EMBEDDED_SO.hash(&mut hasher);
+        let hash = hasher.finish();
+        std::env::temp_dir().join(format!("uptechstar-{:016x}/libuptech.so", hash))
+    }
+
+    fn try_load(path: &std::path::Path) -> Option<Library> {
+        debug!("Trying libuptech from {:?}", path);
+        match unsafe { Library::new(path) } {
+            Ok(lib) => {
+                info!("libuptech loaded successfully from {:?}", path);
+                Some(lib)
+            }
+            Err(e) => {
+                debug!("Failed to load libuptech from {:?}: {}", path, e);
+                None
+            }
+        }
+    }
+
     fn lib() -> Option<&'static Library> {
         LIB.get_or_init(|| {
-            let path = "/usr/lib/libuptech.so";
-            info!("Loading libuptech from {}", path);
-            match unsafe { Library::new(path) } {
-                Ok(lib) => {
-                    info!("libuptech loaded successfully");
-                    Some(lib)
+            // Extract embedded .so to temp cache, then fall back to system path.
+            let cache = embedded_cache_path();
+            if !cache.exists() {
+                if let Some(parent) = cache.parent() {
+                    let _ = std::fs::create_dir_all(parent);
                 }
-                Err(e) => {
-                    error!("Failed to load libuptech: {}", e);
-                    None
+                if let Err(e) = std::fs::write(&cache, EMBEDDED_SO) {
+                    warn!("Failed to extract libuptech.so to {:?}: {}", cache, e);
+                } else {
+                    debug!("Extracted libuptech.so to {:?}", cache);
                 }
             }
+
+            // Try extracted cache first, then system-installed path.
+            let candidates = [cache, PathBuf::from("/usr/lib/libuptech.so")];
+
+            for path in &candidates {
+                if let Some(lib) = try_load(path) {
+                    return Some(lib);
+                }
+            }
+
+            error!("Failed to load libuptech from any location");
+            None
         })
         .as_ref()
     }
