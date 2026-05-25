@@ -1,95 +1,66 @@
-use crate::compile::{continues_state, halt_state, make_trans, HandlerOutput};
-use crate::compile::make_surrounding_handler;
+use crate::compile::{continues_state, halt_state, HandlerOutput};
+use crate::compile::{make_edge_handler, make_surrounding_handler, make_search_handler};
 use crate::config::{AppConfig, RunConfig};
-use crate::constant::StageCodeSign;
-use crate::judgers::Breakers;
-use mentabotix_rs::composer::MovingChainComposer;
-use mentabotix_rs::registry::CaseRegistry;
-use mentabotix_rs::transition::BreakerResult;
-use std::collections::HashMap;
 
 use mentabotix_rs::state::MovingState;
 use mentabotix_rs::transition::MovingTransition;
+use crate::compile::make_trans;
+use mentabotix_rs::composer::MovingChainComposer;
+use mentabotix_rs::transition::BreakerResult;
+
 pub fn make_on_stage_handler(
     app_config: &AppConfig,
     run_config: &RunConfig,
     start_state: Option<MovingState>,
-    normal_exit: Option<MovingState>,
     abnormal_exit: Option<MovingState>,
 ) -> HandlerOutput {
-    
-
-    let breakers = Breakers::null();
+    let strategy = &run_config.strategy;
     let start_state = start_state.unwrap_or_else(continues_state);
-    let normal_exit = normal_exit.unwrap_or_else(continues_state);
     let abnormal_exit = abnormal_exit.unwrap_or_else(halt_state);
 
-    let stage_breaker = breakers.make_std_stage_breaker(app_config, run_config);
+    let mut transitions: Vec<MovingTransition> = Vec::new();
+    let mut concat_state = start_state.clone();
 
-    // Sub-handlers: battle (ON_STAGE) and unclear zone recovery
-    let surrounding_output = make_surrounding_handler(app_config, run_config, None, None, None);
-    let unclear_output = make_unclear_zone_handler(app_config, run_config, None);
-
-    let mut transitions_pool: Vec<MovingTransition> = Vec::new();
-
-    // Merge sub-handler transition graphs
-    transitions_pool.extend(surrounding_output.transitions);
-    transitions_pool.extend(unclear_output.transitions);
-
-    let loop_dur = run_config.perf.checking_duration;
-
-    // Loop-back: after battle ends (nothing detected), check stage again
-    let loop_surr = MovingTransition::new(loop_dur)
-        .unwrap()
-        .with_from_state(surrounding_output.normal_exit.id())
-        .with_single_to_state(start_state.id());
-    transitions_pool.push(loop_surr);
-
-    // Loop-back: after unclear zone cleared, check stage again
-    let loop_unclear = MovingTransition::new(loop_dur)
-        .unwrap()
-        .with_from_state(unclear_output.normal_exit.id())
-        .with_single_to_state(start_state.id());
-    transitions_pool.push(loop_unclear);
-
-    // Stage-check branching: map every StageCodeSign variant
-    let mut case_reg = CaseRegistry::<StageCodeSign>::new();
-
-    // ON_STAGE (0) and ON_STAGE_REBOOT (2) → enter battle
-    case_reg.register(StageCodeSign::ON_STAGE, surrounding_output.start_state.id()).ok();
-    case_reg.register(StageCodeSign::ON_STAGE_REBOOT, surrounding_output.start_state.id()).ok();
-    // OFF_STAGE (1) and OFF_STAGE_REBOOT (3) → exit the loop
-    case_reg.register(StageCodeSign::OFF_STAGE, normal_exit.id()).ok();
-    case_reg.register(StageCodeSign::OFF_STAGE_REBOOT, normal_exit.id()).ok();
-    // UNCLEAR_ZONE (4) and UNCLEAR_ZONE_REBOOT (6) → unclear zone handler
-    case_reg.register(StageCodeSign::UNCLEAR_ZONE, unclear_output.start_state.id()).ok();
-    case_reg.register(StageCodeSign::UNCLEAR_ZONE_REBOOT, unclear_output.start_state.id()).ok();
-
-    // Assemble: start_state → head transition (stage check with breaker)
-    let mut composer = MovingChainComposer::new();
-    composer.add_state(start_state.clone());
-
-    let to_states: HashMap<BreakerResult, usize> = case_reg
-        .export()
-        .into_iter()
-        .map(|(k, v)| (BreakerResult::Int(k as i64), v))
-        .collect();
-    let mut head = MovingTransition::new(run_config.perf.checking_duration)
-        .unwrap()
-        .with_arc_breaker(stage_breaker);
-    for (key, state_id) in &to_states {
-        head.to_states.insert(key.clone(), *state_id);
+    if strategy.use_edge_component {
+        let edge_output = make_edge_handler(
+            app_config,
+            run_config,
+            Some(concat_state.clone()),
+            None,
+            Some(abnormal_exit.clone()),
+        );
+        transitions.extend(edge_output.transitions);
+        concat_state = edge_output.normal_exit;
     }
-    composer.add_transition(head);
 
-    let (_, mut composer_trans) = composer.export();
-    transitions_pool.append(&mut composer_trans);
+    if strategy.use_surrounding_component {
+        let surr_output = make_surrounding_handler(
+            app_config,
+            run_config,
+            Some(concat_state.clone()),
+            None,
+            Some(abnormal_exit.clone()),
+        );
+        transitions.extend(surr_output.transitions);
+        concat_state = surr_output.normal_exit;
+    }
+
+    if strategy.use_normal_component {
+        let search_output = make_search_handler(
+            app_config,
+            run_config,
+            Some(concat_state.clone()),
+            Some(abnormal_exit.clone()),
+            None,
+        );
+        transitions.extend(search_output.transitions);
+    }
 
     HandlerOutput {
         start_state,
-        normal_exit,
+        normal_exit: concat_state,
         abnormal_exit,
-        transitions: transitions_pool,
+        transitions,
     }
 }
 
