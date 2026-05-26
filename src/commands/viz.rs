@@ -11,7 +11,7 @@ pub fn cmd_viz(
     destination: PathBuf,
     run_config_path: Option<PathBuf>,
 ) {
-    use mentabotix_rs::{export_structure, ArrowStyle};
+    use mentabotix_rs::{clear_state_labels, export_structure, ArrowStyle};
 
     let run_config = run_config_path
         .as_deref()
@@ -37,11 +37,14 @@ pub fn cmd_viz(
     );
 
     for &name in &packs {
-        match compile::get_handler(name) {
+        match compile::get_handler_full(name) {
             Some(handler) => {
-                let transitions = handler(&app_config, &run_config);
+                // Clear the global registry to avoid stale labels from prior handlers
+                clear_state_labels();
+
+                let output = handler(&app_config, &run_config);
                 let filename = destination.join(format!("{}.puml", name));
-                match export_structure(&filename, &transitions, ArrowStyle::Down) {
+                match export_structure(&filename, &output.transitions, ArrowStyle::Down) {
                     Ok(()) => println!("  ✓ {}", filename.display()),
                     Err(e) => error!("  ✗ {}: {}", name, e),
                 }
