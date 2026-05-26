@@ -1,5 +1,9 @@
-use crate::compile::{continues_state, halt_state, make_straight, make_turn_l, make_turn_r, make_trans, HandlerOutput};
-use crate::compile::{make_back_to_stage_handler, make_rand_walk_handler, make_align_direction_handler};
+use crate::compile::{
+    HandlerOutput, continues_state, halt_state, make_straight, make_trans, make_turn_l, make_turn_r,
+};
+use crate::compile::{
+    make_align_direction_handler, make_back_to_stage_handler, make_rand_walk_handler,
+};
 use crate::config::{AppConfig, RunConfig};
 use crate::constant::FenceCodeSign;
 use crate::judgers::Breakers;
@@ -24,10 +28,12 @@ pub fn make_fence_handler(
     let fc = &run_config.fence;
 
     // Sub-handlers
-    let back_stage_output = make_back_to_stage_handler(app_config, run_config, Some(stop_state.clone()));
+    let back_stage_output =
+        make_back_to_stage_handler(app_config, run_config, Some(stop_state.clone()));
     let rand_move_output = make_rand_walk_handler(app_config, run_config, Some(stop_state.clone()));
     let rand_move_head_state = rand_move_output.start_state.clone();
-    let align_direction_output = make_align_direction_handler(app_config, run_config, Some(rand_move_head_state.clone()));
+    let align_direction_output =
+        make_align_direction_handler(app_config, run_config, Some(rand_move_head_state.clone()));
 
     // Breakers
     let fence_breaker = breakers.make_std_fence_breaker(app_config, run_config);
@@ -57,19 +63,29 @@ pub fn make_fence_handler(
     let mut case_reg = CaseRegistry::<FenceCodeSign>::new();
 
     // Case 1: X_O_O_O → back_stage_pack
-    case_reg.register(FenceCodeSign::X_O_O_O, back_stage_output.start_state.id()).ok();
+    case_reg
+        .register(FenceCodeSign::X_O_O_O, back_stage_output.start_state.id())
+        .ok();
 
     // Helper to build an exit_t (must be called once per use since MovingTransition is not Clone)
     let make_exit_t = || -> MovingTransition {
-        make_trans(fc.max_exit_corner_duration, Some(Arc::clone(&lr_blocked_breaker)))
+        make_trans(
+            fc.max_exit_corner_duration,
+            Some(Arc::clone(&lr_blocked_breaker)),
+        )
     };
 
     // Case 2: O_X_O_O, O_O_X_O, O_O_O_X, O_O_X_X, X_X_O_O → align_state → align_stage_transition → back_stage_pack
     {
         let mut align_t = make_trans(fc.max_stage_align_duration, Some(align_stage_breaker));
         // Branch: False → rand_move_head_state, default → back_stage head
-        align_t.to_states.insert(BreakerResult::Bool(false), rand_move_head_state.id());
-        align_t.to_states.insert(BreakerResult::Placeholder, back_stage_output.start_state.id());
+        align_t
+            .to_states
+            .insert(BreakerResult::Bool(false), rand_move_head_state.id());
+        align_t.to_states.insert(
+            BreakerResult::Placeholder,
+            back_stage_output.start_state.id(),
+        );
 
         let mut c = MovingChainComposer::new();
         c.add_state(align_state.clone());
@@ -77,13 +93,18 @@ pub fn make_fence_handler(
         let (align_states, align_trans) = c.export();
 
         if let Some(head) = align_states.first() {
-            case_reg.batch_register([
-                FenceCodeSign::O_X_O_O,
-                FenceCodeSign::O_O_X_O,
-                FenceCodeSign::O_O_O_X,
-                FenceCodeSign::O_O_X_X,
-                FenceCodeSign::X_X_O_O,
-            ], head.id()).ok();
+            case_reg
+                .batch_register(
+                    [
+                        FenceCodeSign::O_X_O_O,
+                        FenceCodeSign::O_O_X_O,
+                        FenceCodeSign::O_O_O_X,
+                        FenceCodeSign::O_O_X_X,
+                        FenceCodeSign::X_X_O_O,
+                    ],
+                    head.id(),
+                )
+                .ok();
         }
         transitions_pool.extend(align_trans);
     }
@@ -96,10 +117,9 @@ pub fn make_fence_handler(
         c.add_state(stop_state.clone());
         let (states, trans) = c.export();
         if let Some(head) = states.first() {
-            case_reg.batch_register([
-                FenceCodeSign::O_X_O_X,
-                FenceCodeSign::O_X_X_O,
-            ], head.id()).ok();
+            case_reg
+                .batch_register([FenceCodeSign::O_X_O_X, FenceCodeSign::O_X_X_O], head.id())
+                .ok();
         }
         transitions_pool.extend(trans);
     }
@@ -112,27 +132,33 @@ pub fn make_fence_handler(
         c.add_state(stop_state.clone());
         let (states, trans) = c.export();
         if let Some(head) = states.first() {
-            case_reg.batch_register([
-                FenceCodeSign::X_O_O_X,
-                FenceCodeSign::X_O_X_O,
-            ], head.id()).ok();
+            case_reg
+                .batch_register([FenceCodeSign::X_O_O_X, FenceCodeSign::X_O_X_O], head.id())
+                .ok();
         }
         transitions_pool.extend(trans);
     }
 
     // Case 5: O_X_X_X, X_O_X_X, X_X_O_X, X_X_X_O → align_direction_pack
-    case_reg.batch_register([
-        FenceCodeSign::O_X_X_X,
-        FenceCodeSign::X_O_X_X,
-        FenceCodeSign::X_X_O_X,
-        FenceCodeSign::X_X_X_O,
-    ], align_direction_output.start_state.id()).ok();
+    case_reg
+        .batch_register(
+            [
+                FenceCodeSign::O_X_X_X,
+                FenceCodeSign::X_O_X_X,
+                FenceCodeSign::X_X_O_X,
+                FenceCodeSign::X_X_X_O,
+            ],
+            align_direction_output.start_state.id(),
+        )
+        .ok();
 
     // Case 6: O_O_O_O, X_X_X_X → rand_move_pack
-    case_reg.batch_register([
-        FenceCodeSign::O_O_O_O,
-        FenceCodeSign::X_X_X_X,
-    ], rand_move_output.start_state.id()).ok();
+    case_reg
+        .batch_register(
+            [FenceCodeSign::O_O_O_O, FenceCodeSign::X_X_X_X],
+            rand_move_output.start_state.id(),
+        )
+        .ok();
 
     // Assembly
     let mut composer = MovingChainComposer::new();
@@ -157,7 +183,6 @@ pub fn make_fence_handler(
     HandlerOutput {
         start_state,
         normal_exit: stop_state,
-        abnormal_exit: halt_state(),
         transitions: transitions_pool,
     }
 }

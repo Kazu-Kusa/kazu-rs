@@ -1,4 +1,7 @@
-use crate::compile::{continues_state, halt_state, make_straight, make_turn_l, make_turn_r, make_trans, make_trans_no_breaker, HandlerOutput};
+use crate::compile::{
+    HandlerOutput, continues_state, halt_state, make_straight, make_trans, make_trans_no_breaker,
+    make_turn_l, make_turn_r,
+};
 use crate::config::{AppConfig, RunConfig};
 use crate::judgers::Breakers;
 use mentabotix_rs::composer::MovingChainComposer;
@@ -43,7 +46,6 @@ pub fn make_reboot_handler(
     HandlerOutput {
         start_state: states.into_iter().next().unwrap_or_else(halt_state),
         normal_exit: end_state,
-        abnormal_exit: halt_state(),
         transitions,
     }
 }
@@ -67,8 +69,7 @@ pub fn make_back_to_stage_handler(
     let concat_state_id: Option<usize>;
 
     if bsc.use_is_on_stage_check && bsc.use_side_away_check {
-        let side_away_breaker =
-            breakers.make_back_stage_side_away_breaker(app_config, run_config);
+        let side_away_breaker = breakers.make_back_stage_side_away_breaker(app_config, run_config);
 
         let mut side_c = MovingChainComposer::new();
         // concat_state: exit side-away moving forward
@@ -111,8 +112,7 @@ pub fn make_back_to_stage_handler(
     c.add_state(dash_backward.clone());
 
     if bsc.use_is_on_stage_check {
-        let is_on_stage_breaker =
-            breakers.make_is_on_stage_breaker(app_config, run_config);
+        let is_on_stage_breaker = breakers.make_is_on_stage_breaker(app_config, run_config);
 
         // First part of dash
         c.add_transition(make_trans_no_breaker(
@@ -128,9 +128,7 @@ pub fn make_back_to_stage_handler(
         );
         // If breaker returns False (not on stage) → concat_state (side-away recovery)
         if let Some(cid) = concat_state_id {
-            checking_t
-                .to_states
-                .insert(BreakerResult::Bool(false), cid);
+            checking_t.to_states.insert(BreakerResult::Bool(false), cid);
         }
         c.add_transition(checking_t);
     } else {
@@ -158,7 +156,6 @@ pub fn make_back_to_stage_handler(
     HandlerOutput {
         start_state: small_advance,
         normal_exit: end_state,
-        abnormal_exit: halt_state(),
         transitions: all_transitions,
     }
 }
@@ -186,7 +183,6 @@ pub fn make_rand_walk_handler(
     HandlerOutput {
         start_state: states.into_iter().next().unwrap_or_else(halt_state),
         normal_exit: end_state,
-        abnormal_exit: halt_state(),
         transitions,
     }
 }
@@ -209,7 +205,6 @@ pub fn make_rand_turn_handler(
     HandlerOutput {
         start_state: states.into_iter().next().unwrap_or_else(halt_state),
         normal_exit: end_state,
-        abnormal_exit: halt_state(),
         transitions,
     }
 }
@@ -236,8 +231,7 @@ pub fn make_align_direction_handler(
         _ => make_turn_l(fc.direction_align_speed), // "rand" or default
     };
 
-    let mut align_transition =
-        make_trans(fc.max_direction_align_duration, Some(align_breaker));
+    let mut align_transition = make_trans(fc.max_direction_align_duration, Some(align_breaker));
     // Branch: aligned(True) → aligned state, not aligned(False) → not_aligned state
     align_transition
         .to_states
@@ -254,7 +248,6 @@ pub fn make_align_direction_handler(
     HandlerOutput {
         start_state: states.into_iter().next().unwrap_or_else(halt_state),
         normal_exit: aligned,
-        abnormal_exit: halt_state(),
         transitions,
     }
 }

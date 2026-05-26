@@ -1,13 +1,16 @@
-use crate::compile::{continues_state, halt_state, make_straight, make_turn_l, make_turn_r, make_drift_rl, make_drift_rr, make_trans, make_trans_no_breaker, HandlerOutput};
+use crate::compile::{
+    HandlerOutput, continues_state, halt_state, make_drift_rl, make_drift_rr, make_straight,
+    make_trans, make_trans_no_breaker, make_turn_l, make_turn_r,
+};
 use crate::config::{AppConfig, RunConfig};
 use crate::constant::EdgeCodeSign;
 use crate::judgers::Breakers;
 use mentabotix_rs::composer::MovingChainComposer;
 use mentabotix_rs::registry::CaseRegistry;
-use mentabotix_rs::transition::BreakerResult;
-use std::collections::HashMap;
 use mentabotix_rs::state::MovingState;
+use mentabotix_rs::transition::BreakerResult;
 use mentabotix_rs::transition::MovingTransition;
+use std::collections::HashMap;
 
 pub fn make_edge_handler(
     app_config: &AppConfig,
@@ -33,8 +36,12 @@ pub fn make_edge_handler(
     let mut transitions_pool: Vec<MovingTransition> = Vec::new();
     let mut case_reg = CaseRegistry::<EdgeCodeSign>::new();
 
-    case_reg.register(EdgeCodeSign::O_O_O_O, normal_exit.id()).ok();
-    case_reg.register(EdgeCodeSign::X_X_X_X, abnormal_exit.id()).ok();
+    case_reg
+        .register(EdgeCodeSign::O_O_O_O, normal_exit.id())
+        .ok();
+    case_reg
+        .register(EdgeCodeSign::X_X_X_X, abnormal_exit.id())
+        .ok();
 
     // Helper: build a chain, register head state, collect transitions.
     // Takes closures that produce states/transitions on each call (no cloning).
@@ -79,56 +86,148 @@ pub fn make_edge_handler(
 
     let abnormal = || halt_state();
 
-    let add_s = |s: MovingState| move |mut c: MovingChainComposer| { c.add_state(s); c };
-    let add_t = |t: MovingTransition| move |mut c: MovingChainComposer| { c.add_transition(t); c };
+    let add_s = |s: MovingState| {
+        move |mut c: MovingChainComposer| {
+            c.add_state(s);
+            c
+        }
+    };
+    let add_t = |t: MovingTransition| {
+        move |mut c: MovingChainComposer| {
+            c.add_transition(t);
+            c
+        }
+    };
 
     // 1-Activation cases
-    edge_case!(case_reg, EdgeCodeSign::X_O_O_O, [
-        add_s(fb_state()), add_t(fb_trans()), add_s(rt_state()), add_t(full_t()), add_s(abnormal()),
-    ]);
-    edge_case!(case_reg, EdgeCodeSign::O_O_O_X, [
-        add_s(fb_state()), add_t(fb_trans()), add_s(lt_state()), add_t(full_t()), add_s(abnormal()),
-    ]);
-    edge_case!(case_reg, EdgeCodeSign::O_X_O_O, [
-        add_s(adv_state()), add_t(adv_trans()), add_s(rt_state()), add_t(half_t()), add_s(abnormal()),
-    ]);
-    edge_case!(case_reg, EdgeCodeSign::O_O_X_O, [
-        add_s(adv_state()), add_t(adv_trans()), add_s(lt_state()), add_t(half_t()), add_s(abnormal()),
-    ]);
+    edge_case!(
+        case_reg,
+        EdgeCodeSign::X_O_O_O,
+        [
+            add_s(fb_state()),
+            add_t(fb_trans()),
+            add_s(rt_state()),
+            add_t(full_t()),
+            add_s(abnormal()),
+        ]
+    );
+    edge_case!(
+        case_reg,
+        EdgeCodeSign::O_O_O_X,
+        [
+            add_s(fb_state()),
+            add_t(fb_trans()),
+            add_s(lt_state()),
+            add_t(full_t()),
+            add_s(abnormal()),
+        ]
+    );
+    edge_case!(
+        case_reg,
+        EdgeCodeSign::O_X_O_O,
+        [
+            add_s(adv_state()),
+            add_t(adv_trans()),
+            add_s(rt_state()),
+            add_t(half_t()),
+            add_s(abnormal()),
+        ]
+    );
+    edge_case!(
+        case_reg,
+        EdgeCodeSign::O_O_X_O,
+        [
+            add_s(adv_state()),
+            add_t(adv_trans()),
+            add_s(lt_state()),
+            add_t(half_t()),
+            add_s(abnormal()),
+        ]
+    );
 
     // 2-Activation cases
-    edge_case!(case_reg, EdgeCodeSign::X_X_O_O, [
-        add_s(rt_state()), add_t(half_t()), add_s(abnormal()),
-    ]);
-    edge_case!(case_reg, EdgeCodeSign::O_O_X_X, [
-        add_s(lt_state()), add_t(half_t()), add_s(abnormal()),
-    ]);
-    edge_case!(case_reg, EdgeCodeSign::X_O_O_X, [
-        add_s(fb_state()), add_t(fb_trans()), add_s(rlt_state()), add_t(full_t()), add_s(abnormal()),
-    ]);
-    edge_case!(case_reg, EdgeCodeSign::O_X_X_O, [
-        add_s(adv_state()), add_t(adv_trans()), add_s(abnormal()),
-    ]);
-    edge_case!(case_reg, EdgeCodeSign::X_O_X_O, [
-        add_s(drb_state()), add_t(drift_t()), add_s(abnormal()),
-    ]);
-    edge_case!(case_reg, EdgeCodeSign::O_X_O_X, [
-        add_s(dlb_state()), add_t(drift_t()), add_s(abnormal()),
-    ]);
+    edge_case!(
+        case_reg,
+        EdgeCodeSign::X_X_O_O,
+        [add_s(rt_state()), add_t(half_t()), add_s(abnormal()),]
+    );
+    edge_case!(
+        case_reg,
+        EdgeCodeSign::O_O_X_X,
+        [add_s(lt_state()), add_t(half_t()), add_s(abnormal()),]
+    );
+    edge_case!(
+        case_reg,
+        EdgeCodeSign::X_O_O_X,
+        [
+            add_s(fb_state()),
+            add_t(fb_trans()),
+            add_s(rlt_state()),
+            add_t(full_t()),
+            add_s(abnormal()),
+        ]
+    );
+    edge_case!(
+        case_reg,
+        EdgeCodeSign::O_X_X_O,
+        [add_s(adv_state()), add_t(adv_trans()), add_s(abnormal()),]
+    );
+    edge_case!(
+        case_reg,
+        EdgeCodeSign::X_O_X_O,
+        [add_s(drb_state()), add_t(drift_t()), add_s(abnormal()),]
+    );
+    edge_case!(
+        case_reg,
+        EdgeCodeSign::O_X_O_X,
+        [add_s(dlb_state()), add_t(drift_t()), add_s(abnormal()),]
+    );
 
     // 3-Activation cases
-    edge_case!(case_reg, EdgeCodeSign::O_X_X_X, [
-        add_s(lt_state()), add_t(half_t()), add_s(adv_state()), add_t(adv_trans()), add_s(abnormal()),
-    ]);
-    edge_case!(case_reg, EdgeCodeSign::X_X_X_O, [
-        add_s(rt_state()), add_t(half_t()), add_s(adv_state()), add_t(adv_trans()), add_s(abnormal()),
-    ]);
-    edge_case!(case_reg, EdgeCodeSign::X_O_X_X, [
-        add_s(rt_state()), add_t(half_t()), add_s(fb_state()), add_t(fb_trans()), add_s(abnormal()),
-    ]);
-    edge_case!(case_reg, EdgeCodeSign::X_X_O_X, [
-        add_s(lt_state()), add_t(half_t()), add_s(fb_state()), add_t(fb_trans()), add_s(abnormal()),
-    ]);
+    edge_case!(
+        case_reg,
+        EdgeCodeSign::O_X_X_X,
+        [
+            add_s(lt_state()),
+            add_t(half_t()),
+            add_s(adv_state()),
+            add_t(adv_trans()),
+            add_s(abnormal()),
+        ]
+    );
+    edge_case!(
+        case_reg,
+        EdgeCodeSign::X_X_X_O,
+        [
+            add_s(rt_state()),
+            add_t(half_t()),
+            add_s(adv_state()),
+            add_t(adv_trans()),
+            add_s(abnormal()),
+        ]
+    );
+    edge_case!(
+        case_reg,
+        EdgeCodeSign::X_O_X_X,
+        [
+            add_s(rt_state()),
+            add_t(half_t()),
+            add_s(fb_state()),
+            add_t(fb_trans()),
+            add_s(abnormal()),
+        ]
+    );
+    edge_case!(
+        case_reg,
+        EdgeCodeSign::X_X_O_X,
+        [
+            add_s(lt_state()),
+            add_t(half_t()),
+            add_s(fb_state()),
+            add_t(fb_trans()),
+            add_s(abnormal()),
+        ]
+    );
 
     // Top-level branching transition
     composer.init_container();
@@ -154,7 +253,6 @@ pub fn make_edge_handler(
     HandlerOutput {
         start_state,
         normal_exit,
-        abnormal_exit,
         transitions: transitions_pool,
     }
 }

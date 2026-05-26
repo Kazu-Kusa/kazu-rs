@@ -1,12 +1,12 @@
-use crate::compile::{continues_state, halt_state, HandlerOutput};
-use crate::compile::{make_edge_handler, make_surrounding_handler, make_search_handler};
+use crate::compile::{HandlerOutput, continues_state, halt_state};
+use crate::compile::{make_edge_handler, make_search_handler, make_surrounding_handler};
 use crate::config::{AppConfig, RunConfig};
 
-use mentabotix_rs::state::MovingState;
-use mentabotix_rs::transition::MovingTransition;
 use crate::compile::make_trans;
 use mentabotix_rs::composer::MovingChainComposer;
+use mentabotix_rs::state::MovingState;
 use mentabotix_rs::transition::BreakerResult;
+use mentabotix_rs::transition::MovingTransition;
 
 pub fn make_on_stage_handler(
     app_config: &AppConfig,
@@ -59,7 +59,6 @@ pub fn make_on_stage_handler(
     HandlerOutput {
         start_state,
         normal_exit: concat_state,
-        abnormal_exit,
         transitions,
     }
 }
@@ -71,8 +70,6 @@ pub fn make_unclear_zone_handler(
     run_config: &RunConfig,
     normal_exit: Option<MovingState>,
 ) -> HandlerOutput {
-    
-
     let sc = &run_config.stage;
     let normal_exit = normal_exit.unwrap_or_else(continues_state);
 
@@ -111,18 +108,22 @@ pub fn make_unclear_zone_handler(
             BreakerResult::Bool(triggered)
         });
 
-    let turn_t = || make_trans(sc.unclear_zone_turn_duration, Some(std::sync::Arc::clone(&unclear_breaker)));
+    let turn_t = || {
+        make_trans(
+            sc.unclear_zone_turn_duration,
+            Some(std::sync::Arc::clone(&unclear_breaker)),
+        )
+    };
 
     let mut c = MovingChainComposer::new();
-    c.add_state(start_state.clone());       // records gray ADC via hook
-    c.add_transition(turn_t());            // turns until tolerance exceeded
+    c.add_state(start_state.clone()); // records gray ADC via hook
+    c.add_transition(turn_t()); // turns until tolerance exceeded
     c.add_state(normal_exit.clone());
     let (_, transitions) = c.export();
 
     HandlerOutput {
         start_state,
         normal_exit,
-        abnormal_exit: halt_state(),
         transitions,
     }
 }

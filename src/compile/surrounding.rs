@@ -1,4 +1,6 @@
-use crate::compile::{continues_state, halt_state, make_straight, make_turn_l, make_turn_r, make_trans, HandlerOutput};
+use crate::compile::{
+    HandlerOutput, continues_state, halt_state, make_straight, make_trans, make_turn_l, make_turn_r,
+};
 use crate::config::{AppConfig, RunConfig};
 use crate::constant::SurroundingCodeSign;
 use crate::judgers::Breakers;
@@ -14,23 +16,19 @@ pub fn make_surrounding_handler(
     run_config: &RunConfig,
     start_state: Option<MovingState>,
     normal_exit: Option<MovingState>,
-    abnormal_exit: Option<MovingState>,
+    _abnormal_exit: Option<MovingState>,
 ) -> HandlerOutput {
     use mentabotix_rs::state::MovingState;
 
     let breakers = Breakers::null();
     let start_state = start_state.unwrap_or_else(continues_state);
     let normal_exit = normal_exit.unwrap_or_else(continues_state);
-    let abnormal_exit = abnormal_exit.unwrap_or_else(halt_state);
 
     let sc = &run_config.surrounding;
 
     let tag_group = crate::config::TagGroup::new(&run_config.team_color);
     let _query_table = crate::static_utils::make_query_table(&tag_group);
-    let surr_full_breaker = breakers.make_surr_breaker(
-        app_config, run_config,
-        &tag_group,
-    );
+    let surr_full_breaker = breakers.make_surr_breaker(app_config, run_config, &tag_group);
     let atk_breaker = if sc.atk_break_use_edge_sensors {
         breakers.make_atk_breaker_with_edge_sensors(app_config, run_config)
     } else {
@@ -53,7 +51,12 @@ pub fn make_surrounding_handler(
     let aect = || make_trans(sc.atk_enemy_car_duration, Some(atk_breaker.clone()));
     let aebt = || make_trans(sc.atk_enemy_box_duration, Some(atk_breaker.clone()));
     let anbt = || make_trans(sc.atk_neutral_box_duration, Some(atk_breaker.clone()));
-    let afbt = || make_trans(sc.fallback_duration_ally_box, Some(edge_rear_breaker.clone()));
+    let afbt = || {
+        make_trans(
+            sc.fallback_duration_ally_box,
+            Some(edge_rear_breaker.clone()),
+        )
+    };
     let efbt = || make_trans(sc.fallback_duration_edge, Some(edge_rear_breaker.clone()));
     let ftt = || make_trans(sc.full_turn_duration, Some(turn_to_front_breaker.clone()));
     let htt = || make_trans(sc.half_turn_duration, Some(turn_to_front_breaker.clone()));
@@ -63,7 +66,9 @@ pub fn make_surrounding_handler(
     let mut transitions_pool: Vec<MovingTransition> = Vec::new();
     let mut case_reg = CaseRegistry::<SurroundingCodeSign>::new();
 
-    case_reg.register(SurroundingCodeSign::NOTHING, normal_exit.id()).ok();
+    case_reg
+        .register(SurroundingCodeSign::NOTHING, normal_exit.id())
+        .ok();
 
     macro_rules! surr_case {
         ($reg:expr, $signs:expr, [$($step:expr),+ $(,)?]) => {{
@@ -81,112 +86,217 @@ pub fn make_surrounding_handler(
         }};
     }
 
-    let add_s = |s: MovingState| move |mut c: MovingChainComposer| { c.add_state(s); c };
-    let add_t = |t: MovingTransition| move |mut c: MovingChainComposer| { c.add_transition(t); c };
+    let add_s = |s: MovingState| {
+        move |mut c: MovingChainComposer| {
+            c.add_state(s);
+            c
+        }
+    };
+    let add_t = |t: MovingTransition| {
+        move |mut c: MovingChainComposer| {
+            c.add_transition(t);
+            c
+        }
+    };
 
     // Front enemy car
-    surr_case!(case_reg, &[
-        SurroundingCodeSign::FRONT_ENEMY_CAR,
-        SurroundingCodeSign::FRONT_ENEMY_CAR_RIGHT_OBJECT,
-        SurroundingCodeSign::FRONT_ENEMY_CAR_LEFT_OBJECT,
-        SurroundingCodeSign::FRONT_ENEMY_CAR_BEHIND_OBJECT,
-        SurroundingCodeSign::FRONT_ENEMY_CAR_LEFT_RIGHT_OBJECTS,
-        SurroundingCodeSign::FRONT_ENEMY_CAR_RIGHT_BEHIND_OBJECTS,
-        SurroundingCodeSign::FRONT_ENEMY_CAR_LEFT_BEHIND_OBJECTS,
-        SurroundingCodeSign::FRONT_ENEMY_CAR_LEFT_RIGHT_BEHIND_OBJECTS,
-    ], [
-        add_s(aec()), add_t(aect()), add_s(efb()), add_t(efbt()),
-        add_s(rnd()), add_t(ftt()), add_s(abn()),
-    ]);
+    surr_case!(
+        case_reg,
+        &[
+            SurroundingCodeSign::FRONT_ENEMY_CAR,
+            SurroundingCodeSign::FRONT_ENEMY_CAR_RIGHT_OBJECT,
+            SurroundingCodeSign::FRONT_ENEMY_CAR_LEFT_OBJECT,
+            SurroundingCodeSign::FRONT_ENEMY_CAR_BEHIND_OBJECT,
+            SurroundingCodeSign::FRONT_ENEMY_CAR_LEFT_RIGHT_OBJECTS,
+            SurroundingCodeSign::FRONT_ENEMY_CAR_RIGHT_BEHIND_OBJECTS,
+            SurroundingCodeSign::FRONT_ENEMY_CAR_LEFT_BEHIND_OBJECTS,
+            SurroundingCodeSign::FRONT_ENEMY_CAR_LEFT_RIGHT_BEHIND_OBJECTS,
+        ],
+        [
+            add_s(aec()),
+            add_t(aect()),
+            add_s(efb()),
+            add_t(efbt()),
+            add_s(rnd()),
+            add_t(ftt()),
+            add_s(abn()),
+        ]
+    );
 
     // Target switch: behind
-    surr_case!(case_reg, &[
-        SurroundingCodeSign::BEHIND_OBJECT,
-        SurroundingCodeSign::LEFT_RIGHT_BEHIND_OBJECTS,
-        SurroundingCodeSign::FRONT_ENEMY_BOX_BEHIND_OBJECT,
-        SurroundingCodeSign::FRONT_ALLY_BOX_BEHIND_OBJECT,
-        SurroundingCodeSign::FRONT_NEUTRAL_BOX_BEHIND_OBJECT,
-        SurroundingCodeSign::FRONT_ALLY_BOX_LEFT_RIGHT_BEHIND_OBJECTS,
-        SurroundingCodeSign::FRONT_NEUTRAL_BOX_LEFT_RIGHT_BEHIND_OBJECTS,
-        SurroundingCodeSign::FRONT_ENEMY_BOX_LEFT_RIGHT_BEHIND_OBJECTS,
-    ], [
-        add_s(rnd()), add_t(ftt()), add_s(aec()), add_t(aect()),
-        add_s(efb()), add_t(efbt()), add_s(rnd()), add_t(ftt()), add_s(abn()),
-    ]);
+    surr_case!(
+        case_reg,
+        &[
+            SurroundingCodeSign::BEHIND_OBJECT,
+            SurroundingCodeSign::LEFT_RIGHT_BEHIND_OBJECTS,
+            SurroundingCodeSign::FRONT_ENEMY_BOX_BEHIND_OBJECT,
+            SurroundingCodeSign::FRONT_ALLY_BOX_BEHIND_OBJECT,
+            SurroundingCodeSign::FRONT_NEUTRAL_BOX_BEHIND_OBJECT,
+            SurroundingCodeSign::FRONT_ALLY_BOX_LEFT_RIGHT_BEHIND_OBJECTS,
+            SurroundingCodeSign::FRONT_NEUTRAL_BOX_LEFT_RIGHT_BEHIND_OBJECTS,
+            SurroundingCodeSign::FRONT_ENEMY_BOX_LEFT_RIGHT_BEHIND_OBJECTS,
+        ],
+        [
+            add_s(rnd()),
+            add_t(ftt()),
+            add_s(aec()),
+            add_t(aect()),
+            add_s(efb()),
+            add_t(efbt()),
+            add_s(rnd()),
+            add_t(ftt()),
+            add_s(abn()),
+        ]
+    );
 
     // LEFT_BEHIND_OBJECTS: random spd turn left
-    surr_case!(case_reg, &[
-        SurroundingCodeSign::LEFT_BEHIND_OBJECTS,
-        SurroundingCodeSign::FRONT_ENEMY_BOX_LEFT_BEHIND_OBJECTS,
-        SurroundingCodeSign::FRONT_ALLY_BOX_LEFT_BEHIND_OBJECTS,
-        SurroundingCodeSign::FRONT_NEUTRAL_BOX_LEFT_BEHIND_OBJECTS,
-    ], [
-        add_s(rnd()), add_t(ftt()), add_s(aec()), add_t(aect()),
-        add_s(efb()), add_t(efbt()), add_s(rnd()), add_t(ftt()), add_s(abn()),
-    ]);
+    surr_case!(
+        case_reg,
+        &[
+            SurroundingCodeSign::LEFT_BEHIND_OBJECTS,
+            SurroundingCodeSign::FRONT_ENEMY_BOX_LEFT_BEHIND_OBJECTS,
+            SurroundingCodeSign::FRONT_ALLY_BOX_LEFT_BEHIND_OBJECTS,
+            SurroundingCodeSign::FRONT_NEUTRAL_BOX_LEFT_BEHIND_OBJECTS,
+        ],
+        [
+            add_s(rnd()),
+            add_t(ftt()),
+            add_s(aec()),
+            add_t(aect()),
+            add_s(efb()),
+            add_t(efbt()),
+            add_s(rnd()),
+            add_t(ftt()),
+            add_s(abn()),
+        ]
+    );
 
     // RIGHT_BEHIND_OBJECTS: random spd turn right
-    surr_case!(case_reg, &[
-        SurroundingCodeSign::RIGHT_BEHIND_OBJECTS,
-        SurroundingCodeSign::FRONT_ENEMY_BOX_RIGHT_BEHIND_OBJECTS,
-        SurroundingCodeSign::FRONT_ALLY_BOX_RIGHT_BEHIND_OBJECTS,
-        SurroundingCodeSign::FRONT_NEUTRAL_BOX_RIGHT_BEHIND_OBJECTS,
-    ], [
-        add_s(rnd()), add_t(ftt()), add_s(aec()), add_t(aect()),
-        add_s(efb()), add_t(efbt()), add_s(rnd()), add_t(ftt()), add_s(abn()),
-    ]);
+    surr_case!(
+        case_reg,
+        &[
+            SurroundingCodeSign::RIGHT_BEHIND_OBJECTS,
+            SurroundingCodeSign::FRONT_ENEMY_BOX_RIGHT_BEHIND_OBJECTS,
+            SurroundingCodeSign::FRONT_ALLY_BOX_RIGHT_BEHIND_OBJECTS,
+            SurroundingCodeSign::FRONT_NEUTRAL_BOX_RIGHT_BEHIND_OBJECTS,
+        ],
+        [
+            add_s(rnd()),
+            add_t(ftt()),
+            add_s(aec()),
+            add_t(aect()),
+            add_s(efb()),
+            add_t(efbt()),
+            add_s(rnd()),
+            add_t(ftt()),
+            add_s(abn()),
+        ]
+    );
 
     // Left object
-    surr_case!(case_reg, &[
-        SurroundingCodeSign::LEFT_OBJECT,
-        SurroundingCodeSign::FRONT_ENEMY_BOX_LEFT_OBJECT,
-        SurroundingCodeSign::FRONT_ALLY_BOX_LEFT_OBJECT,
-        SurroundingCodeSign::FRONT_NEUTRAL_BOX_LEFT_OBJECT,
-    ], [
-        add_s(lt()), add_t(htt()), add_s(aec()), add_t(aect()),
-        add_s(efb()), add_t(efbt()), add_s(rnd()), add_t(ftt()), add_s(abn()),
-    ]);
+    surr_case!(
+        case_reg,
+        &[
+            SurroundingCodeSign::LEFT_OBJECT,
+            SurroundingCodeSign::FRONT_ENEMY_BOX_LEFT_OBJECT,
+            SurroundingCodeSign::FRONT_ALLY_BOX_LEFT_OBJECT,
+            SurroundingCodeSign::FRONT_NEUTRAL_BOX_LEFT_OBJECT,
+        ],
+        [
+            add_s(lt()),
+            add_t(htt()),
+            add_s(aec()),
+            add_t(aect()),
+            add_s(efb()),
+            add_t(efbt()),
+            add_s(rnd()),
+            add_t(ftt()),
+            add_s(abn()),
+        ]
+    );
 
     // Right object
-    surr_case!(case_reg, &[
-        SurroundingCodeSign::RIGHT_OBJECT,
-        SurroundingCodeSign::FRONT_ENEMY_BOX_RIGHT_OBJECT,
-        SurroundingCodeSign::FRONT_ALLY_BOX_RIGHT_OBJECT,
-        SurroundingCodeSign::FRONT_NEUTRAL_BOX_RIGHT_OBJECT,
-    ], [
-        add_s(rt()), add_t(htt()), add_s(aec()), add_t(aect()),
-        add_s(efb()), add_t(efbt()), add_s(rnd()), add_t(ftt()), add_s(abn()),
-    ]);
+    surr_case!(
+        case_reg,
+        &[
+            SurroundingCodeSign::RIGHT_OBJECT,
+            SurroundingCodeSign::FRONT_ENEMY_BOX_RIGHT_OBJECT,
+            SurroundingCodeSign::FRONT_ALLY_BOX_RIGHT_OBJECT,
+            SurroundingCodeSign::FRONT_NEUTRAL_BOX_RIGHT_OBJECT,
+        ],
+        [
+            add_s(rt()),
+            add_t(htt()),
+            add_s(aec()),
+            add_t(aect()),
+            add_s(efb()),
+            add_t(efbt()),
+            add_s(rnd()),
+            add_t(ftt()),
+            add_s(abn()),
+        ]
+    );
 
     // Left+right objects
-    surr_case!(case_reg, &[
-        SurroundingCodeSign::LEFT_RIGHT_OBJECTS,
-        SurroundingCodeSign::FRONT_ENEMY_BOX_LEFT_RIGHT_OBJECTS,
-        SurroundingCodeSign::FRONT_ALLY_BOX_LEFT_RIGHT_OBJECTS,
-        SurroundingCodeSign::FRONT_NEUTRAL_BOX_LEFT_RIGHT_OBJECTS,
-    ], [
-        add_s(rnd()), add_t(htt()), add_s(aec()), add_t(aect()),
-        add_s(efb()), add_t(efbt()), add_s(rnd()), add_t(ftt()), add_s(abn()),
-    ]);
+    surr_case!(
+        case_reg,
+        &[
+            SurroundingCodeSign::LEFT_RIGHT_OBJECTS,
+            SurroundingCodeSign::FRONT_ENEMY_BOX_LEFT_RIGHT_OBJECTS,
+            SurroundingCodeSign::FRONT_ALLY_BOX_LEFT_RIGHT_OBJECTS,
+            SurroundingCodeSign::FRONT_NEUTRAL_BOX_LEFT_RIGHT_OBJECTS,
+        ],
+        [
+            add_s(rnd()),
+            add_t(htt()),
+            add_s(aec()),
+            add_t(aect()),
+            add_s(efb()),
+            add_t(efbt()),
+            add_s(rnd()),
+            add_t(ftt()),
+            add_s(abn()),
+        ]
+    );
 
     // Front box only
-    surr_case!(case_reg, &[
-        SurroundingCodeSign::FRONT_ENEMY_BOX,
-    ], [
-        add_s(aeb()), add_t(aebt()), add_s(efb()), add_t(efbt()),
-        add_s(rnd()), add_t(ftt()), add_s(abn()),
-    ]);
-    surr_case!(case_reg, &[
-        SurroundingCodeSign::FRONT_NEUTRAL_BOX,
-    ], [
-        add_s(anb()), add_t(anbt()), add_s(efb()), add_t(efbt()),
-        add_s(rnd()), add_t(ftt()), add_s(abn()),
-    ]);
-    surr_case!(case_reg, &[
-        SurroundingCodeSign::FRONT_ALLY_BOX,
-    ], [
-        add_s(afb()), add_t(afbt()), add_s(rnd()), add_t(ftt()), add_s(abn()),
-    ]);
+    surr_case!(
+        case_reg,
+        &[SurroundingCodeSign::FRONT_ENEMY_BOX,],
+        [
+            add_s(aeb()),
+            add_t(aebt()),
+            add_s(efb()),
+            add_t(efbt()),
+            add_s(rnd()),
+            add_t(ftt()),
+            add_s(abn()),
+        ]
+    );
+    surr_case!(
+        case_reg,
+        &[SurroundingCodeSign::FRONT_NEUTRAL_BOX,],
+        [
+            add_s(anb()),
+            add_t(anbt()),
+            add_s(efb()),
+            add_t(efbt()),
+            add_s(rnd()),
+            add_t(ftt()),
+            add_s(abn()),
+        ]
+    );
+    surr_case!(
+        case_reg,
+        &[SurroundingCodeSign::FRONT_ALLY_BOX,],
+        [
+            add_s(afb()),
+            add_t(afbt()),
+            add_s(rnd()),
+            add_t(ftt()),
+            add_s(abn()),
+        ]
+    );
 
     // Assembly: top-level branching
     let mut composer = MovingChainComposer::new();
@@ -212,7 +322,6 @@ pub fn make_surrounding_handler(
     HandlerOutput {
         start_state,
         normal_exit,
-        abnormal_exit,
         transitions: transitions_pool,
     }
 }
