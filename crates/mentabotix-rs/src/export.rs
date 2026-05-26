@@ -1,10 +1,13 @@
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::Path;
-use crate::state::ArrowStyle;
+use crate::state::{lookup_state_label, ArrowStyle};
 use crate::transition::MovingTransition;
 
-/// Export a graph structure as a PlantUML file matching Python `Botix.export_structure()`.
+/// Export a graph structure as a PlantUML file.
+///
+/// State labels are retrieved from the global registry (populated by `MovingState::new()`).
+/// Falls back to `State(N)` when a state ID is not registered.
 pub fn export_structure(
     save_path: &Path,
     transitions: &[MovingTransition],
@@ -49,9 +52,10 @@ pub fn export_structure(
     }
     lines.push(String::new());
 
-    // State declarations.
+    // State declarations — use labels from global registry, fallback to State(N).
     for &sid in &all_ids {
-        lines.push(format!("state \"State({})\" as s{}", sid, sid));
+        let label = lookup_state_label(sid).unwrap_or_else(|| format!("State({})", sid));
+        lines.push(format!("state \"{}\" as s{}", label, sid));
     }
     lines.push(String::new());
 
@@ -98,15 +102,21 @@ pub fn export_structure(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::state::{clear_state_labels, reset_state_id_counter};
     use crate::transition::BreakerResult;
     use std::path::PathBuf;
 
     #[test]
     fn test_export_simple() {
+        clear_state_labels();
         let t = MovingTransition::new(1.0)
             .unwrap()
             .with_from_state(0)
             .with_single_to_state(1);
+        // Manually register labels that MovingState::new() normally does
+        // (MovingTransition doesn't create MovingStates, so we register manually)
+        // For this test, labels won't exist in registry — just verify structure.
+        reset_state_id_counter();
 
         let path = PathBuf::from("test_export.puml");
         export_structure(&path, &[t], ArrowStyle::Down).unwrap();
@@ -122,9 +132,8 @@ mod tests {
 
     #[test]
     fn test_export_branching_demo() {
-        // Python test_compile_with_branches structure:
-        //   s100 -> breaker{1,2,3} -> s200|s300|s400
-        //   s400 -> breaker{1,2}   -> s500|s600
+        clear_state_labels();
+        reset_state_id_counter();
 
         let t_a_bcd = MovingTransition::new(1.0)
             .unwrap()
