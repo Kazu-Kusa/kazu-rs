@@ -1,56 +1,15 @@
+mod config;
+mod bench;
+
+pub use config::{Config, OrderingMethod};
+pub use bench::test_frame_time;
+
 use opencv::prelude::*;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
 use opencv::{highgui, imgproc, videoio, Result};
-/// Tag selection method for when multiple tags are detected
-#[derive(Debug, Clone, Copy)]
-pub enum OrderingMethod {
-    /// Select the tag nearest to the frame center
-    Nearest,
-    /// Select the first detected tag
-    Single,
-}
-
-impl Default for OrderingMethod {
-    fn default() -> Self {
-        OrderingMethod::Nearest
-    }
-}
-
-/// Configuration parameters for TagDetector behavior
-#[derive(Debug, Clone)]
-pub struct Config {
-    /// Whether to operate in single tag detection mode
-    pub single_tag_mode: bool,
-    /// Multiplier for camera resolution scaling
-    pub resolution_multiplier: f64,
-    /// Method for selecting tags when multiple are detected
-    pub ordering_method: OrderingMethod,
-    /// Time interval between halt status checks during detection loop
-    pub halt_check_interval: Duration,
-    /// Tag ID returned when no tags are detected
-    pub default_tag_id: i32,
-    /// Tag ID returned when camera errors occur
-    pub error_tag_id: i32,
-    /// Camera buffer size for real-time performance
-    pub buffer_size: i32,
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Config {
-            single_tag_mode: true,
-            resolution_multiplier: 0.5,
-            ordering_method: OrderingMethod::Nearest,
-            halt_check_interval: Duration::from_millis(400),
-            default_tag_id: -1,
-            error_tag_id: -10,
-            buffer_size: 2,
-        }
-    }
-}
 
 /// A comprehensive AprilTag detection system for real-time computer vision applications.
 ///
@@ -607,68 +566,4 @@ impl TagDetector {
     pub fn camera_device(&self) -> Option<&opencv::videoio::VideoCapture> {
         self.camera.as_ref()
     }
-}
-
-/// Benchmark camera frame acquisition performance over multiple samples.
-///
-/// This utility function measures the time required to read frames from a camera
-/// over a specified number of iterations. It's useful for optimizing camera settings
-/// and evaluating system performance for real-time applications.
-///
-/// # Arguments
-///
-/// * `camera` - OpenCV VideoCapture instance to test. The camera should already
-///   be opened and configured before calling this function.
-/// * `test_frames_count` - Number of frame read operations to perform for the
-///   benchmark. Higher values provide more accurate statistics but take longer
-///   to complete.
-///
-/// # Returns
-///
-/// Returns the average frame acquisition time in seconds per frame.
-///
-/// # Examples
-///
-/// ```rust
-/// let mut camera = opencv::videoio::VideoCapture::new(0, opencv::videoio::CAP_ANY)?;
-/// let avg_time = test_frame_time(&mut camera, 100)?;
-/// let max_fps = 1.0 / avg_time;
-/// println!("Average frame time: {:.4}s, Max FPS: {:.1}", avg_time, max_fps);
-/// ```
-///
-/// # Note
-///
-/// This function performs blocking frame reads and will take significant time
-/// to complete based on the test_frames_count parameter. Results may vary based
-/// on camera resolution and system load.
-pub fn test_frame_time(camera: &mut opencv::videoio::VideoCapture, test_frames_count: usize) -> Result<f64, Box<dyn std::error::Error>> {
-    let mut durations = Vec::with_capacity(test_frames_count);
-    let mut frame = opencv::core::Mat::default();
-
-    for _ in 0..test_frames_count {
-        let start = std::time::Instant::now();
-        camera.read(&mut frame)?;
-        let duration = start.elapsed().as_secs_f64();
-        durations.push(duration);
-    }
-
-    let total_duration: f64 = durations.iter().sum();
-    let average_duration = total_duration / test_frames_count as f64;
-
-    // Calculate standard deviation
-    let variance: f64 = durations.iter()
-        .map(|&d| (d - average_duration).powi(2))
-        .sum::<f64>() / (test_frames_count - 1) as f64;
-    let std_error = variance.sqrt();
-
-    log::info!(
-        "Frame Time Test Results:\n\
-        \tRunning on [{}] frame updates\n\
-        \tTotal Time Cost: [{:.4}s]\n\
-        \tAverage Frame time: [{:.6}s]\n\
-        \tStd Error: [{:.6}s]",
-        test_frames_count, total_duration, average_duration, std_error
-    );
-
-    Ok(average_duration)
 }
