@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::fmt;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Mutex;
 
 mod movement;
 pub use movement::{ArrowStyle, MovementConfig, TurnDirection, FixedAxis};
@@ -125,6 +126,36 @@ impl SpeedPattern {
 
 /// Counter for generating unique state IDs.
 static STATE_ID_COUNTER: AtomicUsize = AtomicUsize::new(0);
+/// Global registry: state ID → human-readable speed label.
+/// Populated on every `MovingState::new()` so that `export_structure`
+/// can recover labels from state IDs alone (transitions store IDs only).
+static STATE_LABELS: Mutex<Option<HashMap<usize, String>>> = Mutex::new(None);
+
+/// Register a state's speed label for later lookup by ID.
+pub fn register_state_label(id: usize, label: String) {
+    if let Ok(mut guard) = STATE_LABELS.lock() {
+        guard.get_or_insert_with(HashMap::new).insert(id, label);
+    }
+}
+
+/// Look up a registered state label by ID. Returns `None` if not found.
+pub fn lookup_state_label(id: usize) -> Option<String> {
+    STATE_LABELS.lock().ok().and_then(|guard| {
+        guard.as_ref().and_then(|m| m.get(&id).cloned())
+    })
+}
+
+/// Clear the global label registry (used between export runs).
+pub fn clear_state_labels() {
+    if let Ok(mut guard) = STATE_LABELS.lock() {
+        *guard = None;
+    }
+}
+
+/// Reset the state ID counter (only used in tests).
+pub fn reset_state_id_counter() {
+    STATE_ID_COUNTER.store(0, Ordering::SeqCst);
+}
 
 /// Represents a movement state of the robot.
 #[derive(Clone)]
@@ -142,10 +173,50 @@ pub struct MovingState {
 }
 
 impl MovingState {
+    fn compute_speed_label(sp: &SpeedPattern) -> String {
+        match sp {
+            SpeedPattern::Full(speed) => {
+                if *speed == 0 {
+                    "halt".to_string()
+                } else {
+                    format!("straight({})", speed)
+                }
+            }
+            SpeedPattern::LeftRight { left, right } => {
+                format!("turn(l={}, r={})", left, right)
+            }
+            SpeedPattern::Individual {
+                front_left,
+                rear_left,
+                front_right,
+                rear_right,
+            } => {
+                if front_left == rear_left && front_left == front_right && front_left == rear_right {
+                    if *front_left == 0 {
+                        "halt".to_string()
+                    } else {
+                        format!("straight({})", front_left)
+                    }
+                } else if front_left == rear_left && front_right == rear_right {
+                    format!("turn(l={}, r={})", front_left, front_right)
+                } else {
+                    format!(
+                        "indiv({},{},{},{})",
+                        front_left, rear_left, front_right, rear_right
+                    )
+                }
+            }
+            SpeedPattern::Dynamic { .. } => "dynamic".to_string(),
+        }
+    }
+
     /// Create a new moving state with the given speed pattern.
     pub fn new(speed_pattern: SpeedPattern) -> Self {
+        let label = Self::compute_speed_label(&speed_pattern);
+        let id = STATE_ID_COUNTER.fetch_add(1, Ordering::SeqCst);
+        register_state_label(id, label);
         Self {
-            id: STATE_ID_COUNTER.fetch_add(1, Ordering::SeqCst),
+            id,
             speed_pattern,
             before_entering: Vec::new(),
             after_exiting: Vec::new(),
@@ -238,8 +309,14 @@ impl MovingState {
         pattern_type: PatternType,
         used_context_vars: Vec<String>,
     ) -> Self {
+        let id = STATE_ID_COUNTER.fetch_add(1, Ordering::SeqCst);
+        let label = Self::compute_speed_label(&SpeedPattern::Dynamic {
+            pattern_type,
+            expressions: expressions.clone(),
+        });
+        register_state_label(id, label);
         Self {
-            id: STATE_ID_COUNTER.fetch_add(1, Ordering::SeqCst),
+            id,
             speed_pattern: SpeedPattern::Dynamic {
                 pattern_type,
                 expressions,

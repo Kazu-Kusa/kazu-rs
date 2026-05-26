@@ -11,6 +11,8 @@ pub mod export;
 pub use state::{
     ArrowStyle, Context, FixedAxis, MovingState, MovementConfig,
     PatternType, SpeedExpr, SpeedPattern, TurnDirection,
+    clear_state_labels, lookup_state_label, register_state_label,
+    reset_state_id_counter,
 };
 pub use transition::{BreakerResult, MovingTransition};
 pub use botix::Botix;
