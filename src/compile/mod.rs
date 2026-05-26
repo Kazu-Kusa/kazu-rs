@@ -40,13 +40,10 @@ use mentabotix_rs::{
 pub struct HandlerOutput {
     pub start_state: MovingState,
     pub normal_exit: MovingState,
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "mirrors Python 4-tuple (start, normal, abnormal, transitions); abnormal state ID is embedded in transition graph, field retained as semantic anchor for future assembly wiring")]
     pub abnormal_exit: MovingState,
     pub transitions: Vec<MovingTransition>,
 }
-
-/// Shorthand: just the transitions (used by viz).
-pub type HandlerResult = Vec<MovingTransition>;
 
 // ── Helpers ───────────────────────────────────────────────────
 
@@ -74,56 +71,60 @@ pub(crate) fn make_trans_no_breaker(dur: f64) -> MovingTransition {
 
 // ── Dispatch table ────────────────────────────────────────────
 
-/// Signature for handler functions compatible with the dispatch table.
-pub type HandlerFn = fn(&AppConfig, &RunConfig) -> HandlerResult;
-
-/// Dispatch table mapping pack names to handler functions.
-pub fn get_handler(name: &str) -> Option<HandlerFn> {
-    match name {
-        "edge" => Some(|ac, rc| {
-            make_edge_handler(ac, rc, None, None, None).transitions
-        }),
-        "surr" => Some(|ac, rc| {
-            make_surrounding_handler(ac, rc, None, None, None).transitions
-        }),
-        "scan" => Some(|ac, rc| {
-            make_scan_handler(ac, rc, None).transitions
-        }),
-        "search" => Some(|ac, rc| {
-            make_search_handler(ac, rc, None, None, None).transitions
-        }),
-        "fence" => Some(|ac, rc| {
-            make_fence_handler(ac, rc, None, None).transitions
-        }),
-        "boot" => Some(|ac, rc| {
-            make_reboot_handler(ac, rc, None).transitions
-        }),
-        "bkstage" => Some(|ac, rc| {
-            make_back_to_stage_handler(ac, rc, None).transitions
-        }),
-        "rdwalk" => Some(|ac, rc| {
-            make_rand_walk_handler(ac, rc, None).transitions
-        }),
-        "stdbat" => Some(|ac, rc| {
-            make_std_battle_handler(ac, rc).transitions
-        }),
-        "onstage" => Some(|ac, rc| {
-            make_always_on_stage_battle_handler(ac, rc).transitions
-        }),
-        "angbat" => Some(|ac, rc| {
-            make_always_on_stage_battle_handler(ac, rc).transitions
-        }),
-        "afgbat" => Some(|ac, rc| {
-            make_always_off_stage_battle_handler(ac, rc).transitions
-        }),
-        _ => None,
-    }
-}
 
 /// All available handler names.
 pub fn all_handler_names() -> &'static [&'static str] {
     &[
         "edge", "surr", "scan", "search", "fence", "boot",
-        "bkstage", "rdwalk", "stdbat", "onstage", "angbat", "afgbat",
+        "bkstage", "rdwalk", "align", "stdbat", "onstage", "angbat", "afgbat",
     ]
+}
+/// Full dispatch table: returns complete `HandlerOutput` with state objects
+/// (used by viz to extract speed labels).
+pub type HandlerFullFn = fn(&AppConfig, &RunConfig) -> HandlerOutput;
+
+/// Dispatch table mapping pack names to handler functions returning `HandlerOutput`.
+pub fn get_handler_full(name: &str) -> Option<HandlerFullFn> {
+    match name {
+        "edge" => Some(|ac, rc| {
+            make_edge_handler(ac, rc, None, None, None)
+        }),
+        "surr" => Some(|ac, rc| {
+            make_surrounding_handler(ac, rc, None, None, None)
+        }),
+        "scan" => Some(|ac, rc| {
+            make_scan_handler(ac, rc, None)
+        }),
+        "search" => Some(|ac, rc| {
+            make_search_handler(ac, rc, None, None, None)
+        }),
+        "fence" => Some(|ac, rc| {
+            make_fence_handler(ac, rc, None, None)
+        }),
+        "boot" => Some(|ac, rc| {
+            make_reboot_handler(ac, rc, None)
+        }),
+        "bkstage" => Some(|ac, rc| {
+            make_back_to_stage_handler(ac, rc, None)
+        }),
+        "rdwalk" => Some(|ac, rc| {
+            make_rand_walk_handler(ac, rc, None)
+        }),
+        "stdbat" => Some(|ac, rc| {
+            make_std_battle_handler(ac, rc)
+        }),
+        "onstage" => Some(|ac, rc| {
+            make_always_on_stage_battle_handler(ac, rc)
+        }),
+        "angbat" => Some(|ac, rc| {
+            make_always_on_stage_battle_handler(ac, rc)
+        }),
+        "afgbat" => Some(|ac, rc| {
+            make_always_off_stage_battle_handler(ac, rc)
+        }),
+        "align" => Some(|ac, rc| {
+            make_align_direction_handler(ac, rc, None)
+        }),
+        _ => None,
+    }
 }
