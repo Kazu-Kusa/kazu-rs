@@ -1,7 +1,7 @@
+use super::SensorData;
 use crate::config::{AppConfig, RunConfig};
 use mentabotix_rs::transition::BreakerResult;
 use std::sync::Arc;
-use super::SensorData;
 
 pub(crate) fn make_std_fence_breaker(
     sensor: &Arc<dyn SensorData>,
@@ -26,21 +26,16 @@ pub(crate) fn make_std_fence_breaker(
     Arc::new(move || {
         let adc = sensor.adc_all();
         let io = sensor.io_all();
-        let front =
-            *adc.get(f_idx).unwrap_or(&0.0) > f_th
-                || *io.get(fl_io).unwrap_or(&1.0) == io_fence_val
-                || *io.get(fr_io).unwrap_or(&1.0) == io_fence_val;
-        let rear =
-            *adc.get(r_idx).unwrap_or(&0.0) > r_th
-                || *io.get(rl_io).unwrap_or(&1.0) == io_fence_val
-                || *io.get(rr_io).unwrap_or(&1.0) == io_fence_val;
+        let front = *adc.get(f_idx).unwrap_or(&0.0) > f_th
+            || *io.get(fl_io).unwrap_or(&1.0) == io_fence_val
+            || *io.get(fr_io).unwrap_or(&1.0) == io_fence_val;
+        let rear = *adc.get(r_idx).unwrap_or(&0.0) > r_th
+            || *io.get(rl_io).unwrap_or(&1.0) == io_fence_val
+            || *io.get(rr_io).unwrap_or(&1.0) == io_fence_val;
         let left = *adc.get(l_idx).unwrap_or(&0.0) > l_th;
         let right = *adc.get(ri_idx).unwrap_or(&0.0) > ri_th;
 
-        let code = (front as i32)
-            + (rear as i32) * 2
-            + (left as i32) * 4
-            + (right as i32) * 8;
+        let code = (front as i32) + (rear as i32) * 2 + (left as i32) * 4 + (right as i32) * 8;
         BreakerResult::Int(code as i64)
     })
 }

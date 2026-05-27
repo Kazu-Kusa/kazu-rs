@@ -13,9 +13,15 @@ pub struct TagGroup {
     pub default_tag: i32,
 }
 
-fn default_enemy_tag() -> i32 { 1 }
-fn default_ally_tag() -> i32 { 0 }
-fn default_tag_id() -> i32 { 0 }
+fn default_enemy_tag() -> i32 {
+    1
+}
+fn default_ally_tag() -> i32 {
+    0
+}
+fn default_tag_id() -> i32 {
+    0
+}
 
 impl Default for TagGroup {
     fn default() -> Self {

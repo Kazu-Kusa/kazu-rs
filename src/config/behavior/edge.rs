@@ -30,19 +30,45 @@ pub struct EdgeConfig {
     pub use_gray_io: bool,
 }
 
-fn default_edge_lower() -> [f64; 4] { [1740.0, 1819.0, 1819.0, 1740.0] }
-fn default_edge_upper() -> [f64; 4] { [2100.0, 2470.0, 2470.0, 2100.0] }
-fn default_fallback_speed() -> i32 { 2600 }
-fn default_fallback_duration() -> f64 { 0.2 }
-fn default_advance_speed() -> i32 { 2400 }
-fn default_advance_duration() -> f64 { 0.35 }
-fn default_turn_speed() -> i32 { 2800 }
-fn default_full_turn_duration() -> f64 { 0.45 }
-fn default_half_turn_duration() -> f64 { 0.225 }
-fn default_turn_left_prob() -> f64 { 0.5 }
-fn default_drift_speed() -> i32 { 1500 }
-fn default_drift_duration() -> f64 { 0.13 }
-fn default_use_gray_io() -> bool { true }
+fn default_edge_lower() -> [f64; 4] {
+    [1740.0, 1819.0, 1819.0, 1740.0]
+}
+fn default_edge_upper() -> [f64; 4] {
+    [2100.0, 2470.0, 2470.0, 2100.0]
+}
+fn default_fallback_speed() -> i32 {
+    2600
+}
+fn default_fallback_duration() -> f64 {
+    0.2
+}
+fn default_advance_speed() -> i32 {
+    2400
+}
+fn default_advance_duration() -> f64 {
+    0.35
+}
+fn default_turn_speed() -> i32 {
+    2800
+}
+fn default_full_turn_duration() -> f64 {
+    0.45
+}
+fn default_half_turn_duration() -> f64 {
+    0.225
+}
+fn default_turn_left_prob() -> f64 {
+    0.5
+}
+fn default_drift_speed() -> i32 {
+    1500
+}
+fn default_drift_duration() -> f64 {
+    0.13
+}
+fn default_use_gray_io() -> bool {
+    true
+}
 
 impl Default for EdgeConfig {
     fn default() -> Self {

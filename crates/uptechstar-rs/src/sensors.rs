@@ -79,7 +79,9 @@ impl OnBoardSensors {
         info!("Initializing ADC-IO");
         let open_times = ffi::adc_io_open();
         if open_times == -1 {
-            error!("Failed to open ADC-IO. Check if the channel is already opened and libuptech.so is loaded properly.");
+            error!(
+                "Failed to open ADC-IO. Check if the channel is already opened and libuptech.so is loaded properly."
+            );
         } else {
             debug!("ADC-IO open {} times", open_times);
         }
@@ -90,7 +92,9 @@ impl OnBoardSensors {
     pub fn adc_io_close(self) -> Self {
         info!("Closing ADC-IO");
         if ffi::adc_io_close() == -1 {
-            error!("Failed to close ADC-IO. Check if the channel is opened and libuptech.so is loaded properly.");
+            error!(
+                "Failed to close ADC-IO. Check if the channel is opened and libuptech.so is loaded properly."
+            );
         } else {
             debug!("ADC-IO closed");
         }
@@ -108,7 +112,9 @@ impl OnBoardSensors {
         }
         self.adc_last_sample_timestamp = now;
         if ffi::adc_get_all(&mut self.adc_all) != 0 {
-            error!("Failed to get all ADC channels. Check if the channel is opened and libuptech.so is loaded properly.");
+            error!(
+                "Failed to get all ADC channels. Check if the channel is opened and libuptech.so is loaded properly."
+            );
         }
         self.adc_cache = self.adc_all;
         self.adc_cache
@@ -143,7 +149,9 @@ impl OnBoardSensors {
     /// `levels = 0b10000000` => IO7 high, rest low
     pub fn set_all_io_levels(self, levels: i32) -> Self {
         if ffi::adc_io_set_all(levels as u32) != 0 {
-            error!("Failed to set all IO levels. Check if the channel is opened and libuptech.so is loaded properly.");
+            error!(
+                "Failed to set all IO levels. Check if the channel is opened and libuptech.so is loaded properly."
+            );
         }
         self
     }
@@ -153,7 +161,10 @@ impl OnBoardSensors {
     /// Only meaningful in OUTPUT mode.
     pub fn flip_io_level(self, index: i32) -> Self {
         if ffi::adc_io_set(index as u32) == -1 {
-            error!("Failed to flip IO level, index: {}. Check if the channel is opened and libuptech.so is loaded properly.", index);
+            error!(
+                "Failed to flip IO level, index: {}. Check if the channel is opened and libuptech.so is loaded properly.",
+                index
+            );
         }
         self
     }
@@ -183,7 +194,10 @@ impl OnBoardSensors {
     /// Set the mode of a specific IO pin (0 = input, 1 = output).
     pub fn set_io_mode(self, index: i32, mode: BinaryIO) -> Self {
         if ffi::adc_io_mode_set(index as u32, mode) != 0 {
-            error!("Failed to set IO mode, index: {}, mode: {}. Check if the channel is opened and libuptech.so is loaded properly.", index, mode);
+            error!(
+                "Failed to set IO mode, index: {}, mode: {}. Check if the channel is opened and libuptech.so is loaded properly.",
+                index, mode
+            );
         }
         self
     }
@@ -199,7 +213,9 @@ impl OnBoardSensors {
     pub fn mpu6500_open(self) -> Self {
         info!("Initializing MPU6500...");
         if ffi::mpu6500_dmp_init() != 0 {
-            warn!("Failed to initialize MPU6500. Check if the channel is opened and libuptech.so is loaded properly.");
+            warn!(
+                "Failed to initialize MPU6500. Check if the channel is opened and libuptech.so is loaded properly."
+            );
             return self;
         }
         info!("MPU6500 initialized");

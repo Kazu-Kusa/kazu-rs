@@ -1,8 +1,8 @@
+use log::{debug, error, info, trace, warn};
+use serialport::{DataBits, Parity, SerialPort, StopBits};
 use std::collections::HashMap;
 use std::thread;
 use std::time::{Duration, Instant};
-use serialport::{SerialPort, DataBits, Parity, StopBits};
-use log::{debug, info, warn, error, trace};
 
 pub type Context = HashMap<String, serde_json::Value>;
 pub type Direction = i8; // 1 or -1
@@ -38,7 +38,10 @@ pub struct MotorInfo {
 
 impl MotorInfo {
     pub fn new(code_sign: i32, direction: Direction) -> Self {
-        Self { code_sign, direction }
+        Self {
+            code_sign,
+            direction,
+        }
     }
 }
 
@@ -50,10 +53,22 @@ impl Default for MotorInfo {
 
 /// Classic motor infos for 4-motor setup
 pub const CLASSIC_MIS: [MotorInfo; 4] = [
-    MotorInfo { code_sign: 1, direction: 1 },
-    MotorInfo { code_sign: 2, direction: 1 },
-    MotorInfo { code_sign: 3, direction: 1 },
-    MotorInfo { code_sign: 4, direction: 1 },
+    MotorInfo {
+        code_sign: 1,
+        direction: 1,
+    },
+    MotorInfo {
+        code_sign: 2,
+        direction: 1,
+    },
+    MotorInfo {
+        code_sign: 3,
+        direction: 1,
+    },
+    MotorInfo {
+        code_sign: 4,
+        direction: 1,
+    },
 ];
 
 /// CloseLoopController is a struct designed to manage and control a system involving multiple motors with closed-loop feedback.
@@ -94,15 +109,23 @@ impl CloseLoopController {
         port: Option<&str>,
     ) -> Result<Self, Box<dyn std::error::Error>> {
         debug!("Creating new CloseLoopController");
-        trace!("Parameters - motor_infos: {:?}, context provided: {}, config provided: {}, port: {:?}", 
-               motor_infos.is_some(), context.is_some(), config.is_some(), port);
+        trace!(
+            "Parameters - motor_infos: {:?}, context provided: {}, config provided: {}, port: {:?}",
+            motor_infos.is_some(),
+            context.is_some(),
+            config.is_some(),
+            port
+        );
 
         let motor_infos = motor_infos.unwrap_or_else(|| CLASSIC_MIS.to_vec());
         let config = config.unwrap_or_default();
         let context = context.unwrap_or_default();
 
         info!("Initializing controller with {} motors", motor_infos.len());
-        debug!("Serial config - baudrate: {}, timeout: {:?}", config.baudrate, config.timeout);
+        debug!(
+            "Serial config - baudrate: {}, timeout: {:?}",
+            config.baudrate, config.timeout
+        );
 
         // Check for unique motor infos
         let mut unique_check = std::collections::HashSet::new();
@@ -132,9 +155,15 @@ impl CloseLoopController {
     /// Open the serial port
     pub fn open(&mut self, port: &str) -> Result<&mut Self, Box<dyn std::error::Error>> {
         info!("Attempting to open serial port: {}", port);
-        debug!("Serial configuration: baudrate={}, data_bits={:?}, parity={:?}, stop_bits={:?}, timeout={:?}", 
-               self.config.baudrate, self.config.data_bits, self.config.parity, self.config.stop_bits, self.config.timeout);
-        
+        debug!(
+            "Serial configuration: baudrate={}, data_bits={:?}, parity={:?}, stop_bits={:?}, timeout={:?}",
+            self.config.baudrate,
+            self.config.data_bits,
+            self.config.parity,
+            self.config.stop_bits,
+            self.config.timeout
+        );
+
         match serialport::new(port, self.config.baudrate)
             .data_bits(self.config.data_bits)
             .parity(self.config.parity)
@@ -220,12 +249,18 @@ impl CloseLoopController {
     }
 
     /// Set the speed for each motor based on the provided speeds
-    pub fn set_motors_speed(&mut self, speeds: &[f64]) -> Result<&mut Self, Box<dyn std::error::Error>> {
+    pub fn set_motors_speed(
+        &mut self,
+        speeds: &[f64],
+    ) -> Result<&mut Self, Box<dyn std::error::Error>> {
         debug!("Setting motor speeds: {:?}", speeds);
-        
+
         if speeds.len() != self.motor_infos.len() {
-            error!("Speed array length ({}) does not match motor count ({})", 
-                   speeds.len(), self.motor_infos.len());
+            error!(
+                "Speed array length ({}) does not match motor count ({})",
+                speeds.len(),
+                self.motor_infos.len()
+            );
             return Err("Length of speeds must equal the number of motors".into());
         }
 
@@ -233,14 +268,13 @@ impl CloseLoopController {
             let mut command = String::new();
             for (motor_info, &speed) in self.motor_infos.iter().zip(speeds.iter()) {
                 let adjusted_speed = (speed * motor_info.direction as f64) as i32;
-                command.push_str(&format!(
-                    "{}v{}\r",
-                    motor_info.code_sign,
-                    adjusted_speed
-                ));
-                trace!("Motor {} command: {}v{}", motor_info.code_sign, motor_info.code_sign, adjusted_speed);
+                command.push_str(&format!("{}v{}\r", motor_info.code_sign, adjusted_speed));
+                trace!(
+                    "Motor {} command: {}v{}",
+                    motor_info.code_sign, motor_info.code_sign, adjusted_speed
+                );
             }
-            
+
             debug!("Sending motor speed command: {:?}", command.trim());
             match serial.write_all(command.as_bytes()) {
                 Ok(_) => {
@@ -262,7 +296,7 @@ impl CloseLoopController {
     /// Send a command to the serial port
     pub fn send_cmd(&mut self, cmd: &[u8]) -> Result<&mut Self, Box<dyn std::error::Error>> {
         debug!("Sending command: {:?}", String::from_utf8_lossy(cmd));
-        
+
         if let Some(ref mut serial) = self.serial {
             match serial.write_all(cmd) {
                 Ok(_) => {
@@ -289,8 +323,11 @@ impl CloseLoopController {
     where
         F: FnMut() -> bool,
     {
-        debug!("Starting delay with breaker: {:.2}s delay, {:.2}s check interval", delay_sec, check_interval);
-        
+        debug!(
+            "Starting delay with breaker: {:.2}s delay, {:.2}s check interval",
+            delay_sec, check_interval
+        );
+
         let start_time = Instant::now();
         let delay_duration = Duration::from_secs_f64(delay_sec);
         let check_duration = Duration::from_secs_f64(check_interval);
@@ -305,10 +342,13 @@ impl CloseLoopController {
         while start_time.elapsed() < delay_duration {
             thread::sleep(check_duration);
             check_count += 1;
-            
+
             if breaker() {
-                debug!("Breaker triggered after {:.2}s ({} checks)", 
-                       start_time.elapsed().as_secs_f64(), check_count);
+                debug!(
+                    "Breaker triggered after {:.2}s ({} checks)",
+                    start_time.elapsed().as_secs_f64(),
+                    check_count
+                );
                 break;
             }
         }
@@ -322,17 +362,16 @@ impl CloseLoopController {
     }
 
     /// Static method to delay with breaker and return breaker result
-    pub fn delay_with_breaker_match<F, T>(
-        delay_sec: f64,
-        mut breaker: F,
-        check_interval: f64,
-    ) -> T
+    pub fn delay_with_breaker_match<F, T>(delay_sec: f64, mut breaker: F, check_interval: f64) -> T
     where
         F: FnMut() -> T,
         T: Clone + Default,
     {
-        debug!("Starting static delay with breaker match: {:.2}s delay, {:.2}s check interval", delay_sec, check_interval);
-        
+        debug!(
+            "Starting static delay with breaker match: {:.2}s delay, {:.2}s check interval",
+            delay_sec, check_interval
+        );
+
         let start_time = Instant::now();
         let delay_duration = Duration::from_secs_f64(delay_sec);
         let check_duration = Duration::from_secs_f64(check_interval);
@@ -352,8 +391,11 @@ impl CloseLoopController {
             last_result = breaker();
         }
 
-        debug!("Static delay with breaker completed after {:.2}s ({} checks)", 
-               start_time.elapsed().as_secs_f64(), check_count);
+        debug!(
+            "Static delay with breaker completed after {:.2}s ({} checks)",
+            start_time.elapsed().as_secs_f64(),
+            check_count
+        );
         last_result
     }
 

@@ -103,7 +103,10 @@ impl MovingTransition {
     }
 
     /// Set the breaker from an existing Arc.
-    pub fn with_arc_breaker(mut self, breaker: std::sync::Arc<dyn Fn() -> BreakerResult + Send + Sync>) -> Self {
+    pub fn with_arc_breaker(
+        mut self,
+        breaker: std::sync::Arc<dyn Fn() -> BreakerResult + Send + Sync>,
+    ) -> Self {
         self.breaker = Some(breaker);
         self
     }
@@ -137,8 +140,7 @@ impl MovingTransition {
 
     /// Set a single to_state (branchless transition).
     pub fn with_single_to_state(mut self, state_id: usize) -> Self {
-        self.to_states
-            .insert(BreakerResult::Placeholder, state_id);
+        self.to_states.insert(BreakerResult::Placeholder, state_id);
         self
     }
 

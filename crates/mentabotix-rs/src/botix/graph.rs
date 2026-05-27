@@ -22,7 +22,8 @@ impl Botix {
                 continue;
             }
             // Follow forward edge.
-            if let Some(trans) = forward_edge.get(&current)
+            if let Some(trans) = forward_edge
+                .get(&current)
                 .and_then(|&tid| transitions.get(&tid))
             {
                 for &next_id in trans.to_states.values() {

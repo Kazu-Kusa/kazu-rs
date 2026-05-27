@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 use std::fmt;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 mod movement;
-pub use movement::{ArrowStyle, MovementConfig, TurnDirection, FixedAxis};
+pub use movement::{ArrowStyle, FixedAxis, MovementConfig, TurnDirection};
 
 /// Shared context for runtime evaluation of dynamic speed expressions.
 pub type Context = HashMap<String, serde_json::Value>;
@@ -140,9 +140,10 @@ pub fn register_state_label(id: usize, label: String) {
 
 /// Look up a registered state label by ID. Returns `None` if not found.
 pub fn lookup_state_label(id: usize) -> Option<String> {
-    STATE_LABELS.lock().ok().and_then(|guard| {
-        guard.as_ref().and_then(|m| m.get(&id).cloned())
-    })
+    STATE_LABELS
+        .lock()
+        .ok()
+        .and_then(|guard| guard.as_ref().and_then(|m| m.get(&id).cloned()))
 }
 
 /// Clear the global label registry (used between export runs).
@@ -191,7 +192,8 @@ impl MovingState {
                 front_right,
                 rear_right,
             } => {
-                if front_left == rear_left && front_left == front_right && front_left == rear_right {
+                if front_left == rear_left && front_left == front_right && front_left == rear_right
+                {
                     if *front_left == 0 {
                         "halt".to_string()
                     } else {
@@ -469,18 +471,17 @@ mod tests {
     #[test]
     fn test_resolve_speeds_dynamic() {
         let mut ctx = Context::new();
-        ctx.insert("v".to_string(), serde_json::Value::Number(serde_json::Number::from(42)));
+        ctx.insert(
+            "v".to_string(),
+            serde_json::Value::Number(serde_json::Number::from(42)),
+        );
 
         let expressions = [
             SpeedExpr::Fn(std::sync::Arc::new(|c: &Context| {
-                c.get("v")
-                    .and_then(|v| v.as_i64())
-                    .unwrap_or(0) as i32
+                c.get("v").and_then(|v| v.as_i64()).unwrap_or(0) as i32
             })),
             SpeedExpr::Fn(std::sync::Arc::new(|c: &Context| {
-                c.get("v")
-                    .and_then(|v| v.as_i64())
-                    .unwrap_or(0) as i32
+                c.get("v").and_then(|v| v.as_i64()).unwrap_or(0) as i32
             })),
             SpeedExpr::Const(10),
             SpeedExpr::Const(10),

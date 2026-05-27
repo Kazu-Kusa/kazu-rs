@@ -1,5 +1,5 @@
 use crate::compile;
-use crate::config::{load_run_config, AppConfig};
+use crate::config::{AppConfig, load_run_config};
 use log::{error, info, warn};
 use std::fs;
 use std::path::PathBuf;
@@ -11,7 +11,7 @@ pub fn cmd_viz(
     destination: PathBuf,
     run_config_path: Option<PathBuf>,
 ) {
-    use mentabotix_rs::{clear_state_labels, export_structure, ArrowStyle};
+    use mentabotix_rs::{ArrowStyle, clear_state_labels, export_structure};
 
     let run_config = run_config_path
         .as_deref()

@@ -1,15 +1,15 @@
-mod config;
 mod bench;
+mod config;
 
-pub use config::{Config, OrderingMethod};
 pub use bench::test_frame_time;
+pub use config::{Config, OrderingMethod};
 
 use opencv::prelude::*;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
-use opencv::{highgui, imgproc, videoio, Result};
+use opencv::{Result, highgui, imgproc, videoio};
 
 /// A comprehensive AprilTag detection system for real-time computer vision applications.
 ///
@@ -82,11 +82,15 @@ impl TagDetector {
     ///
     /// Camera buffer configuration is automatically applied when a camera is opened
     /// to ensure optimal real-time performance with minimal latency.
-    pub fn new(cam_id: Option<i32>, resolution_multiplier: Option<f64>) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn new(
+        cam_id: Option<i32>,
+        resolution_multiplier: Option<f64>,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
         let config = Config::default();
         let mut detector = TagDetector {
             config: Config {
-                resolution_multiplier: resolution_multiplier.unwrap_or(config.resolution_multiplier),
+                resolution_multiplier: resolution_multiplier
+                    .unwrap_or(config.resolution_multiplier),
                 ..config
             },
             frame_center: [0.0, 0.0],
@@ -103,7 +107,6 @@ impl TagDetector {
         Ok(detector)
     }
 
-
     /// Configure camera buffer size for real-time performance
     ///
     /// This internal method sets the camera's frame buffer size to the configured value
@@ -111,8 +114,14 @@ impl TagDetector {
     /// frames are processed with minimal delay, which is crucial for responsive tag detection.
     fn configure_camera_buffer(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         if let Some(ref mut camera) = self.camera {
-            camera.set(opencv::videoio::CAP_PROP_BUFFERSIZE, self.config.buffer_size as f64)?;
-            log::info!("Camera buffer size set to {} for real-time performance", self.config.buffer_size);
+            camera.set(
+                opencv::videoio::CAP_PROP_BUFFERSIZE,
+                self.config.buffer_size as f64,
+            )?;
+            log::info!(
+                "Camera buffer size set to {} for real-time performance",
+                self.config.buffer_size
+            );
         }
         Ok(())
     }
@@ -153,7 +162,11 @@ impl TagDetector {
 
                 log::info!(
                     "CAMERA RESOLUTION: {}x{}\nCAMERA FPS: [{}]\nCAM CENTER: [{:?}]\nBUFFER SIZE: [{}]",
-                    width, height, fps, self.frame_center, buffer_size
+                    width,
+                    height,
+                    fps,
+                    self.frame_center,
+                    buffer_size
                 );
             }
         } else {
@@ -177,7 +190,6 @@ impl TagDetector {
         }
         self
     }
-
 
     /// Start AprilTag detection in a background thread.
     ///
@@ -460,7 +472,10 @@ impl TagDetector {
     /// The actual resolution set may be adjusted by the camera driver to the
     /// nearest supported resolution. The method automatically updates the frame
     /// center calculations after resolution changes.
-    pub fn set_cam_resolution_mul(&mut self, resolution_multiplier: f64) -> Result<&mut Self, Box<dyn std::error::Error>> {
+    pub fn set_cam_resolution_mul(
+        &mut self,
+        resolution_multiplier: f64,
+    ) -> Result<&mut Self, Box<dyn std::error::Error>> {
         if self.camera.is_none() {
             return Err("Camera is not initialized!".into());
         }
@@ -510,7 +525,11 @@ impl TagDetector {
     ///
     /// The method automatically updates frame center calculations and logs
     /// the actual resolution set by the camera driver.
-    pub fn set_cam_resolution(&mut self, new_width: i32, new_height: i32) -> Result<&mut Self, Box<dyn std::error::Error>> {
+    pub fn set_cam_resolution(
+        &mut self,
+        new_width: i32,
+        new_height: i32,
+    ) -> Result<&mut Self, Box<dyn std::error::Error>> {
         if let Some(ref mut camera) = self.camera {
             camera.set(opencv::videoio::CAP_PROP_FRAME_WIDTH, new_width as f64)?;
             camera.set(opencv::videoio::CAP_PROP_FRAME_HEIGHT, new_height as f64)?;
@@ -519,8 +538,9 @@ impl TagDetector {
             let actual_height = camera.get(opencv::videoio::CAP_PROP_FRAME_HEIGHT)?;
 
             log::info!(
-                "Set CAMERA RESOLUTION: {}x{}", 
-                actual_width as i32, actual_height as i32
+                "Set CAMERA RESOLUTION: {}x{}",
+                actual_width as i32,
+                actual_height as i32
             );
 
             self.update_cam_center()?;

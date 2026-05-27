@@ -9,3 +9,5 @@ img
 repo
 *.lock
 visualize
+viz_output
+kazu.toml

@@ -134,7 +134,9 @@ impl Menta {
         let mut results: Vec<f64> = Vec::new();
         for usage in usages {
             if usage.used_sampler_index >= self.samplers.len() {
-                return Err(format!("Sampler index {} out of bounds", usage.used_sampler_index).into());
+                return Err(
+                    format!("Sampler index {} out of bounds", usage.used_sampler_index).into(),
+                );
             }
 
             let data = self.samplers[usage.used_sampler_index].sample();
@@ -208,11 +210,7 @@ mod tests {
         let mut controller = CloseLoopController::new(None, None, None, None).unwrap();
 
         menta
-            .register_updater(
-                &mut controller,
-                &[usage],
-                &["x".into(), "y".into()],
-            )
+            .register_updater(&mut controller, &[usage], &["x".into(), "y".into()])
             .unwrap();
 
         let ctx = controller.context();
@@ -223,7 +221,9 @@ mod tests {
     #[test]
     fn test_menta_sample_all() {
         let s1 = MockSampler { data: vec![10.0] };
-        let s2 = MockSampler { data: vec![20.0, 30.0] };
+        let s2 = MockSampler {
+            data: vec![20.0, 30.0],
+        };
         let menta = Menta::new(vec![Box::new(s1), Box::new(s2)]);
 
         assert_eq!(menta.sample_all(), vec![10.0, 20.0, 30.0]);

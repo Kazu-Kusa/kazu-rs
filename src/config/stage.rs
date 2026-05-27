@@ -2,12 +2,24 @@ use serde::{Deserialize, Serialize};
 
 // ── Shared helpers ─────────────────────────────────────────────
 
-fn default_true() -> bool { true }
-fn default_turn_left_prob() -> f64 { 0.5 }
-fn default_full_turn_duration() -> f64 { 0.45 }
-fn default_boot_stabilize() -> f64 { 0.1 }
-fn default_boot_dash_speed() -> i32 { 7000 }
-fn default_boot_dash_duration() -> f64 { 0.55 }
+fn default_true() -> bool {
+    true
+}
+fn default_turn_left_prob() -> f64 {
+    0.5
+}
+fn default_full_turn_duration() -> f64 {
+    0.45
+}
+fn default_boot_stabilize() -> f64 {
+    0.1
+}
+fn default_boot_dash_speed() -> i32 {
+    7000
+}
+fn default_boot_dash_duration() -> f64 {
+    0.55
+}
 
 // ── Strategy / Perf / Boot / BackStage / Stage ──────────────────
 
@@ -39,7 +51,9 @@ pub struct PerformanceConfig {
 
 impl Default for PerformanceConfig {
     fn default() -> Self {
-        Self { checking_duration: 0.0 }
+        Self {
+            checking_duration: 0.0,
+        }
     }
 }
 
@@ -67,9 +81,15 @@ pub struct BootConfig {
     pub turn_left_prob: f64,
 }
 
-fn default_max_holding() -> f64 { 180.0 }
-fn default_boot_threshold() -> i32 { 1100 }
-fn default_boot_turn_speed() -> i32 { 2150 }
+fn default_max_holding() -> f64 {
+    180.0
+}
+fn default_boot_threshold() -> i32 {
+    1100
+}
+fn default_boot_turn_speed() -> i32 {
+    2150
+}
 
 impl Default for BootConfig {
     fn default() -> Self {
@@ -120,14 +140,30 @@ pub struct BackStageConfig {
     pub exit_side_away_duration: f64,
 }
 
-fn default_backstage_advance_speed() -> i32 { 1500 }
-fn default_backstage_advance_dur() -> f64 { 0.6 }
-fn default_backstage_turn_speed() -> i32 { 2600 }
-fn default_backstage_full_turn() -> f64 { 0.35 }
-fn default_check_start_percent() -> f64 { 0.9 }
-fn default_side_away_tolerance() -> f64 { 10.0 }
-fn default_exit_side_away_speed() -> i32 { 1300 }
-fn default_exit_side_away_dur() -> f64 { 0.6 }
+fn default_backstage_advance_speed() -> i32 {
+    1500
+}
+fn default_backstage_advance_dur() -> f64 {
+    0.6
+}
+fn default_backstage_turn_speed() -> i32 {
+    2600
+}
+fn default_backstage_full_turn() -> f64 {
+    0.35
+}
+fn default_check_start_percent() -> f64 {
+    0.9
+}
+fn default_side_away_tolerance() -> f64 {
+    10.0
+}
+fn default_exit_side_away_speed() -> i32 {
+    1300
+}
+fn default_exit_side_away_dur() -> f64 {
+    0.6
+}
 
 impl Default for BackStageConfig {
     fn default() -> Self {
@@ -168,11 +204,21 @@ pub struct StageConfig {
     pub gray_io_off_stage_case_value: i32,
 }
 
-fn default_stage_off_upper() -> i32 { 2630 }
-fn default_stage_on_lower() -> i32 { 2830 }
-fn default_unclear_tolerance() -> i32 { 90 }
-fn default_unclear_turn_speed() -> i32 { 1500 }
-fn default_unclear_turn_dur() -> f64 { 0.6 }
+fn default_stage_off_upper() -> i32 {
+    2630
+}
+fn default_stage_on_lower() -> i32 {
+    2830
+}
+fn default_unclear_tolerance() -> i32 {
+    90
+}
+fn default_unclear_turn_speed() -> i32 {
+    1500
+}
+fn default_unclear_turn_dur() -> f64 {
+    0.6
+}
 
 impl Default for StageConfig {
     fn default() -> Self {

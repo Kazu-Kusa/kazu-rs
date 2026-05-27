@@ -1,7 +1,7 @@
+use super::SensorData;
 use crate::config::{AppConfig, RunConfig};
 use mentabotix_rs::transition::BreakerResult;
 use std::sync::Arc;
-use super::SensorData;
 
 pub(crate) fn make_std_scan_breaker(
     sensor: &Arc<dyn SensorData>,
@@ -34,10 +34,7 @@ pub(crate) fn make_std_scan_breaker(
             || *io.get(rr_io).unwrap_or(&1.0) == io_val;
         let left = *adc.get(left_idx).unwrap_or(&0.0) > left_tol;
         let right = *adc.get(right_idx).unwrap_or(&0.0) > right_tol;
-        let code = (front as i32)
-            + (rear as i32) * 2
-            + (left as i32) * 4
-            + (right as i32) * 8;
+        let code = (front as i32) + (rear as i32) * 2 + (left as i32) * 4 + (right as i32) * 8;
         BreakerResult::Int(code as i64)
     })
 }

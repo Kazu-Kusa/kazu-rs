@@ -1,7 +1,7 @@
-use rand::Rng;
+use crate::composer::MovingChainComposer;
 use crate::state::MovingState;
 use crate::transition::{BreakerResult, MovingTransition};
-use crate::composer::MovingChainComposer;
+use rand::Rng;
 
 /// Simple counter-based unique name generator.
 pub struct NameGenerator {
@@ -60,16 +60,17 @@ pub fn weighted_selector<T: Clone + Send + Sync + 'static>(
 
             Box::new(move || {
                 let r: f64 = rand::thread_rng().r#gen();
-                let idx = cumsum.iter().position(|&c| r <= c).unwrap_or(pool.len() - 1);
+                let idx = cumsum
+                    .iter()
+                    .position(|&c| r <= c)
+                    .unwrap_or(pool.len() - 1);
                 pool[idx].clone()
             })
         }
-        None => {
-            Box::new(move || {
-                let idx = rand::thread_rng().gen_range(0..pool.len());
-                pool[idx].clone()
-            })
-        }
+        None => Box::new(move || {
+            let idx = rand::thread_rng().gen_range(0..pool.len());
+            pool[idx].clone()
+        }),
     }
 }
 
@@ -102,8 +103,7 @@ pub fn straight_chain(
 
     for i in 1..=step_count {
         let progress = i as f64 / step_count as f64;
-        let speed = start_speed
-            + (deviation as f64 * progress.powf(power_exponent)).round() as i32;
+        let speed = start_speed + (deviation as f64 * progress.powf(power_exponent)).round() as i32;
 
         let trans = MovingTransition::new(step_duration).unwrap();
 
@@ -116,7 +116,8 @@ pub fn straight_chain(
             let _ = breaker_fn;
         }
 
-        comp.add_transition(trans).add_state(MovingState::straight(speed));
+        comp.add_transition(trans)
+            .add_state(MovingState::straight(speed));
     }
 
     // Include the state_on_break in the output if breaker is provided.
@@ -163,14 +164,7 @@ mod tests {
 
     #[test]
     fn test_straight_chain_length() {
-        let (states, transitions) = straight_chain(
-            0,
-            100,
-            1.0,
-            1.0,
-            0.1,
-            None,
-        );
+        let (states, transitions) = straight_chain(0, 100, 1.0, 1.0, 0.1, None);
 
         // 1.0 / 0.1 = 10 steps → 11 states (start + 10), 10 transitions.
         assert_eq!(states.len(), 11);
@@ -180,12 +174,8 @@ mod tests {
     #[test]
     fn test_straight_chain_speeds() {
         let (states, _transitions) = straight_chain(
-            0,
-            100,
-            1.0,
-            1.0, // linear
-            0.25,
-            None,
+            0, 100, 1.0, 1.0, // linear
+            0.25, None,
         );
 
         // 4 steps: speeds should be 0, 25, 50, 75, 100.

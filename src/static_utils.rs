@@ -2,7 +2,6 @@
 //!
 // make_query_table is wired into make_surr_breaker for enemy/ally tag discrimination.
 
-
 use crate::config::TagGroup;
 use std::collections::HashMap;
 

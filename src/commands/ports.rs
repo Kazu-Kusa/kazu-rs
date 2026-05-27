@@ -1,4 +1,4 @@
-use crate::config::{default_baudrate, AppConfig};
+use crate::config::{AppConfig, default_baudrate};
 use std::time::Duration;
 
 pub fn cmd_ports(_app_config: AppConfig, check: bool, timeout: f64) {

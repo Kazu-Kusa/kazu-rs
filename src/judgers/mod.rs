@@ -4,12 +4,12 @@
 //! [`MovingTransition::with_breaker`] that evaluates sensor data against
 //! configured thresholds and returns a [`BreakerResult`].
 
-mod edge;
-mod surrounding;
-mod fence;
 mod align;
-mod stage;
+mod edge;
+mod fence;
 mod misc;
+mod stage;
+mod surrounding;
 
 use crate::config::{AppConfig, RunConfig, TagGroup};
 use mentabotix_rs::transition::BreakerResult;
@@ -33,9 +33,15 @@ pub trait SensorData: Send + Sync {
 pub struct NullSensor;
 
 impl SensorData for NullSensor {
-    fn adc_all(&self) -> Vec<f64> { vec![0.0; 10] }
-    fn io_all(&self) -> Vec<f64> { vec![0.0; 8] }
-    fn mpu_yaw(&self) -> f64 { 0.0 }
+    fn adc_all(&self) -> Vec<f64> {
+        vec![0.0; 10]
+    }
+    fn io_all(&self) -> Vec<f64> {
+        vec![0.0; 8]
+    }
+    fn mpu_yaw(&self) -> f64 {
+        0.0
+    }
 }
 
 // ── Breakers ──────────────────────────────────────────────────

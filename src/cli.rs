@@ -22,7 +22,12 @@ Kazu: A Dedicated Robots Control System
 )]
 pub struct Cli {
     /// Config file path (also set via KAZU_APP_CONFIG_PATH env)
-    #[arg(short = 'a', long, env = "KAZU_APP_CONFIG_PATH", default_value = "kazu.toml")]
+    #[arg(
+        short = 'a',
+        long,
+        env = "KAZU_APP_CONFIG_PATH",
+        default_value = "kazu.toml"
+    )]
     pub app_config_path: PathBuf,
 
     /// Log level override

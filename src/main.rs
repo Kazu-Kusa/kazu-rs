@@ -3,19 +3,19 @@
 //! Rust port of the Python `kazu` CLI. Provides subcommands for sensor reading,
 //! motor control, mission execution, config management, and more.
 
+mod assembly;
 mod cli;
 mod commands;
 mod compile;
 mod config;
 mod constant;
 mod judgers;
-mod assembly;
 mod signal_light;
 mod static_utils;
 use clap::Parser;
 use cli::{Cli, Commands};
 use config::load_app_config;
-use log::{error, LevelFilter};
+use log::{LevelFilter, error};
 use std::process;
 
 fn main() {
@@ -88,7 +88,9 @@ fn main() {
         } => commands::cmd_tag(app_config, camera, camera_res_mul, interval),
         #[cfg(not(feature = "vision"))]
         Commands::Tag { .. } => {
-            error!("The 'tag' command requires the 'vision' feature. Rebuild with --features vision");
+            error!(
+                "The 'tag' command requires the 'vision' feature. Rebuild with --features vision"
+            );
             process::exit(1);
         }
         Commands::Record {

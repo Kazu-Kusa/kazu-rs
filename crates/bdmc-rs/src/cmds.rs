@@ -1,4 +1,3 @@
-
 /// Restart the device
 pub const RESET: &[u8] = b"RESET\r";
 /// Stop the motor

@@ -1,8 +1,8 @@
+use crate::state::{ArrowStyle, lookup_state_label};
+use crate::transition::MovingTransition;
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::Path;
-use crate::state::{lookup_state_label, ArrowStyle};
-use crate::transition::MovingTransition;
 
 /// Export a graph structure as a PlantUML file.
 ///

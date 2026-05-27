@@ -24,14 +24,30 @@ pub struct RandWalk {
     pub walk_duration: f64,
 }
 
-fn default_true() -> bool { true }
-fn default_straight_weight() -> f64 { 2.0 }
-fn default_one() -> f64 { 1.0 }
-fn default_rand_straight_speeds() -> Vec<i32> { vec![-800, -500, 500, 800] }
-fn default_rand_straight_weights() -> Vec<f64> { vec![1.0, 3.0, 3.0, 1.0] }
-fn default_rand_turn_speeds2() -> Vec<i32> { vec![-1200, -800, 800, 1200] }
-fn default_rand_turn_weights2() -> Vec<f64> { vec![1.0, 3.0, 3.0, 1.0] }
-fn default_walk_duration() -> f64 { 0.3 }
+fn default_true() -> bool {
+    true
+}
+fn default_straight_weight() -> f64 {
+    2.0
+}
+fn default_one() -> f64 {
+    1.0
+}
+fn default_rand_straight_speeds() -> Vec<i32> {
+    vec![-800, -500, 500, 800]
+}
+fn default_rand_straight_weights() -> Vec<f64> {
+    vec![1.0, 3.0, 3.0, 1.0]
+}
+fn default_rand_turn_speeds2() -> Vec<i32> {
+    vec![-1200, -800, 800, 1200]
+}
+fn default_rand_turn_weights2() -> Vec<f64> {
+    vec![1.0, 3.0, 3.0, 1.0]
+}
+fn default_walk_duration() -> f64 {
+    0.3
+}
 
 impl Default for RandWalk {
     fn default() -> Self {
@@ -89,17 +105,39 @@ pub struct FenceConfig {
     pub rand_walk: RandWalk,
 }
 
-fn default_fence_front() -> i32 { 900 }
-fn default_fence_rear() -> i32 { 1100 }
-fn default_fence_left() -> i32 { 900 }
-fn default_fence_right() -> i32 { 900 }
-fn default_yaw_tolerance() -> f64 { 20.0 }
-fn default_stage_align_speed() -> i32 { 850 }
-fn default_max_stage_align_dur() -> f64 { 4.5 }
-fn default_direction_align_speed() -> i32 { 850 }
-fn default_max_direction_align_dur() -> f64 { 4.5 }
-fn default_exit_corner_speed() -> i32 { 1200 }
-fn default_max_exit_corner_dur() -> f64 { 1.5 }
+fn default_fence_front() -> i32 {
+    900
+}
+fn default_fence_rear() -> i32 {
+    1100
+}
+fn default_fence_left() -> i32 {
+    900
+}
+fn default_fence_right() -> i32 {
+    900
+}
+fn default_yaw_tolerance() -> f64 {
+    20.0
+}
+fn default_stage_align_speed() -> i32 {
+    850
+}
+fn default_max_stage_align_dur() -> f64 {
+    4.5
+}
+fn default_direction_align_speed() -> i32 {
+    850
+}
+fn default_max_direction_align_dur() -> f64 {
+    4.5
+}
+fn default_exit_corner_speed() -> i32 {
+    1200
+}
+fn default_max_exit_corner_dur() -> f64 {
+    1.5
+}
 
 impl Default for FenceConfig {
     fn default() -> Self {

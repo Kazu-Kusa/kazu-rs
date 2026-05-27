@@ -27,21 +27,14 @@ impl SigLightRegistry {
 
     /// Register all LEDs to display a single color for a given purpose.
     pub fn register_all(&mut self, purpose: &str, color: ColorRgb) {
-        self.registrations
-            .insert(purpose.to_string(), (color, 0));
+        self.registrations.insert(purpose.to_string(), (color, 0));
     }
 
     /// Register individual LED colors for a purpose.
-    pub fn register_singles(
-        &mut self,
-        purpose: &str,
-        _color0: ColorRgb,
-        _color1: ColorRgb,
-    ) {
+    pub fn register_singles(&mut self, purpose: &str, _color0: ColorRgb, _color1: ColorRgb) {
         // In the full port, this would address individual LEDs.
         // For now, store as a combined entry.
-        self.registrations
-            .insert(purpose.to_string(), (_color0, 0));
+        self.registrations.insert(purpose.to_string(), (_color0, 0));
     }
 
     /// Look up the color for a given purpose.

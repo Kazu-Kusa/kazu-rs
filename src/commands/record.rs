@@ -1,4 +1,4 @@
-use crate::config::{load_run_config, AppConfig};
+use crate::config::{AppConfig, load_run_config};
 use log::{error, info};
 use std::fs;
 use std::io::{self, Write};
@@ -13,8 +13,8 @@ pub fn cmd_record(
     interval: f64,
     run_config_path: Option<PathBuf>,
 ) {
-    use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, Ordering};
 
     let _run_config = run_config_path
         .as_deref()
@@ -128,11 +128,7 @@ pub fn cmd_record(
                 );
             }
 
-            println!(
-                "Wrote {} records to {}",
-                records.len(),
-                filepath.display()
-            );
+            println!("Wrote {} records to {}", records.len(), filepath.display());
         }
         Err(e) => {
             error!("Failed to write CSV file {}: {}", filepath.display(), e);
@@ -145,8 +141,5 @@ pub fn cmd_record(
         s.adc_io_close();
     }
 
-    info!(
-        "Record command complete. {} records saved.",
-        records.len()
-    );
+    info!("Record command complete. {} records saved.", records.len());
 }

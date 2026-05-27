@@ -14,10 +14,18 @@ pub struct GradientConfig {
     pub upper_bound: i32,
 }
 
-fn default_gradient_max_speed() -> i32 { 2800 }
-fn default_gradient_min_speed() -> i32 { 500 }
-fn default_gradient_lower() -> i32 { 2900 }
-fn default_gradient_upper() -> i32 { 3700 }
+fn default_gradient_max_speed() -> i32 {
+    2800
+}
+fn default_gradient_min_speed() -> i32 {
+    500
+}
+fn default_gradient_lower() -> i32 {
+    2900
+}
+fn default_gradient_upper() -> i32 {
+    3700
+}
 
 impl Default for GradientConfig {
     fn default() -> Self {
@@ -70,17 +78,39 @@ pub struct ScanConfig {
     pub gray_adc_lower_threshold: i32,
 }
 
-fn default_tolerance_760() -> i32 { 760 }
-fn default_scan_speed() -> i32 { 300 }
-fn default_scan_duration() -> f64 { 4.5 }
-fn default_scan_fallback_speed() -> i32 { 3250 }
-fn default_scan_fallback_duration() -> f64 { 0.2 }
-fn default_scan_turn_speed() -> i32 { 2700 }
-fn default_gray_adc_lower() -> i32 { 3100 }
-fn default_turn_left_prob() -> f64 { 0.5 }
-fn default_full_turn_duration() -> f64 { 0.45 }
-fn default_half_turn_duration() -> f64 { 0.225 }
-fn default_true() -> bool { true }
+fn default_tolerance_760() -> i32 {
+    760
+}
+fn default_scan_speed() -> i32 {
+    300
+}
+fn default_scan_duration() -> f64 {
+    4.5
+}
+fn default_scan_fallback_speed() -> i32 {
+    3250
+}
+fn default_scan_fallback_duration() -> f64 {
+    0.2
+}
+fn default_scan_turn_speed() -> i32 {
+    2700
+}
+fn default_gray_adc_lower() -> i32 {
+    3100
+}
+fn default_turn_left_prob() -> f64 {
+    0.5
+}
+fn default_full_turn_duration() -> f64 {
+    0.45
+}
+fn default_half_turn_duration() -> f64 {
+    0.225
+}
+fn default_true() -> bool {
+    true
+}
 
 impl Default for ScanConfig {
     fn default() -> Self {
@@ -122,9 +152,15 @@ pub struct RandTurn {
     pub use_turn_to_front: bool,
 }
 
-fn default_randturn_speed() -> i32 { 2300 }
-fn default_randturn_full_dur() -> f64 { 0.25 }
-fn default_randturn_half_dur() -> f64 { 0.15 }
+fn default_randturn_speed() -> i32 {
+    2300
+}
+fn default_randturn_full_dur() -> f64 {
+    0.25
+}
+fn default_randturn_half_dur() -> f64 {
+    0.15
+}
 
 impl Default for RandTurn {
     fn default() -> Self {
@@ -162,9 +198,15 @@ pub struct SearchConfig {
     pub rand_turn: RandTurn,
 }
 
-fn default_gradient_weight() -> f64 { 100.0 }
-fn default_scan_weight() -> f64 { 1.96 }
-fn default_randturn_weight() -> f64 { 0.05 }
+fn default_gradient_weight() -> f64 {
+    100.0
+}
+fn default_scan_weight() -> f64 {
+    1.96
+}
+fn default_randturn_weight() -> f64 {
+    0.05
+}
 
 impl Default for SearchConfig {
     fn default() -> Self {

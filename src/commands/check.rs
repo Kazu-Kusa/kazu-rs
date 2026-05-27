@@ -1,6 +1,11 @@
 use crate::config::AppConfig;
 
-pub fn cmd_check(app_config: AppConfig, devices: Vec<String>, port: Option<String>, _camera: Option<i32>) {
+pub fn cmd_check(
+    app_config: AppConfig,
+    devices: Vec<String>,
+    port: Option<String>,
+    _camera: Option<i32>,
+) {
     use bdmc_rs::controller::CloseLoopController;
 
     let test_all = devices.iter().any(|d| d == "all");

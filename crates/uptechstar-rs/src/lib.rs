@@ -11,11 +11,11 @@
 //! - [`pins`]: Pin setter/getter/mode-setter constructor utilities
 //! - [`ffi`]: Low-level FFI bindings (internal)
 
+pub mod emulation;
 pub mod ffi;
 pub mod pins;
 pub mod screen;
 pub mod sensors;
-pub mod emulation;
 
 pub use emulation::SensorEmulator;
 pub use screen::{Color, FontSize, Screen, ScreenDirection};

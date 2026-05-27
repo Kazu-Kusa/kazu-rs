@@ -1,7 +1,7 @@
+use super::SensorData;
 use crate::config::{AppConfig, RunConfig};
 use mentabotix_rs::transition::BreakerResult;
 use std::sync::Arc;
-use super::SensorData;
 
 pub(crate) fn make_std_stage_align_breaker(
     sensor: &Arc<dyn SensorData>,

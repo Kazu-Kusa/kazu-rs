@@ -33,7 +33,6 @@ impl ArrowStyle {
     }
 }
 
-
 impl fmt::Display for ArrowStyle {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.as_str())

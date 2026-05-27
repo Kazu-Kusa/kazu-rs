@@ -54,10 +54,7 @@ pub fn cmd_read(
             let gyro = sensors.gyro_all();
             let atti = sensors.atti_all();
             println!("=== MPU6500 ===");
-            println!(
-                "  Accel:   X={:.2} Y={:.2} Z={:.2}",
-                acc[0], acc[1], acc[2]
-            );
+            println!("  Accel:   X={:.2} Y={:.2} Z={:.2}", acc[0], acc[1], acc[2]);
             println!(
                 "  Gyro:    X={:.2} Y={:.2} Z={:.2}",
                 gyro[0], gyro[1], gyro[2]

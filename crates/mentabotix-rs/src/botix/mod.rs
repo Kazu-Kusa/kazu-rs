@@ -120,12 +120,8 @@ impl Botix {
         }
 
         // Verify accessibility: all states reachable from start.
-        let reachable = Self::compute_reachable_set(
-            &state_map,
-            &forward_edge,
-            &trans_map,
-            start_state,
-        );
+        let reachable =
+            Self::compute_reachable_set(&state_map, &forward_edge, &trans_map, start_state);
         let all_ids: HashSet<usize> = state_map.keys().copied().collect();
         let unreachable: Vec<usize> = all_ids.difference(&reachable).copied().collect();
         if !unreachable.is_empty() {
@@ -185,9 +181,10 @@ impl Botix {
 
         // Resolve and set speeds.
         let speeds = {
-            let state = self.states.get(&state_id).ok_or_else(|| {
-                format!("State {} not found in registry", state_id)
-            })?;
+            let state = self
+                .states
+                .get(&state_id)
+                .ok_or_else(|| format!("State {} not found in registry", state_id))?;
             state.resolve_speeds(self.controller.context())
         };
         let speeds_f64: Vec<f64> = speeds.iter().map(|&s| s as f64).collect();
@@ -211,9 +208,10 @@ impl Botix {
                 let has_breaker: bool;
 
                 {
-                    let trans = self.transitions.get(&trans_id).ok_or_else(|| {
-                        format!("Transition {} not found in registry", trans_id)
-                    })?;
+                    let trans = self
+                        .transitions
+                        .get(&trans_id)
+                        .ok_or_else(|| format!("Transition {} not found in registry", trans_id))?;
                     duration = trans.duration;
                     check_interval = trans.check_interval;
                     to_states = trans.to_states.clone();
@@ -223,9 +221,11 @@ impl Botix {
                 if !has_breaker {
                     // Simple delay.
                     std::thread::sleep(Duration::from_secs_f64(duration));
-                    let next = to_states.values().next().copied().ok_or_else(|| {
-                        format!("Transition {} has no to_states", trans_id)
-                    })?;
+                    let next = to_states
+                        .values()
+                        .next()
+                        .copied()
+                        .ok_or_else(|| format!("Transition {} has no to_states", trans_id))?;
                     Ok(TransitionOutcome::NextState(next))
                 } else {
                     // Poll breaker until duration expires or non-placeholder result.
@@ -234,7 +234,9 @@ impl Botix {
                     let check_dur = Duration::from_secs_f64(check_interval.max(0.001));
 
                     // We call the breaker directly through the stored reference.
-                    let _breaker_fn = self.transitions.get(&trans_id)
+                    let _breaker_fn = self
+                        .transitions
+                        .get(&trans_id)
                         .and_then(|t| t.breaker.as_ref())
                         .ok_or_else(|| format!("Breaker not found for transition {}", trans_id))?;
 

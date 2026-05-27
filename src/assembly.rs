@@ -31,9 +31,7 @@ pub fn assembly_ngs_schema(
     app_config: &AppConfig,
     run_config: &RunConfig,
 ) -> Vec<MovingTransition> {
-    let output = compile::make_on_stage_handler(
-        app_config, run_config, None, None,
-    );
+    let output = compile::make_on_stage_handler(app_config, run_config, None, None);
     // The handler builds a complete stage-check loop:
     //   start_state → stage check → ON_STAGE battle / UNCLEAR recovery / OFF_STAGE exit
     //   with loop-back transitions from battle and unclear back to the stage check.
@@ -48,9 +46,7 @@ pub fn assembly_fgs_schema(
     run_config: &RunConfig,
 ) -> (Vec<MovingTransition>, Vec<MovingTransition>) {
     let boot_output = compile::make_reboot_handler(app_config, run_config, None);
-    let stage_output = compile::make_on_stage_handler(
-        app_config, run_config, None, None,
-    );
+    let stage_output = compile::make_on_stage_handler(app_config, run_config, None, None);
 
     let mut boot_transitions = boot_output.transitions;
     let stage_transitions = stage_output.transitions;

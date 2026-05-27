@@ -318,13 +318,7 @@ impl Screen {
     }
 
     /// Fill a circle.
-    pub fn fill_circle(
-        &mut self,
-        x0: i32,
-        y0: i32,
-        r: i32,
-        color: impl Into<Color>,
-    ) -> &mut Self {
+    pub fn fill_circle(&mut self, x0: i32, y0: i32, r: i32, color: impl Into<Color>) -> &mut Self {
         ffi::ug_fill_circle(x0, y0, r, color.into().0);
         self
     }
@@ -376,13 +370,7 @@ impl Screen {
     }
 
     /// Draw an empty circle.
-    pub fn draw_circle(
-        &mut self,
-        x0: i32,
-        y0: i32,
-        r: i32,
-        color: impl Into<Color>,
-    ) -> &mut Self {
+    pub fn draw_circle(&mut self, x0: i32, y0: i32, r: i32, color: impl Into<Color>) -> &mut Self {
         ffi::ug_draw_circle(x0, y0, r, color.into().0);
         self
     }

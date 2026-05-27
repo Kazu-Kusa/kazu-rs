@@ -52,28 +52,72 @@ pub struct SurroundingConfig {
     pub half_turn_duration: f64,
 }
 
-fn default_surr_left_adc() -> i32 { 1000 }
-fn default_surr_right_adc() -> i32 { 1000 }
-fn default_surr_front_adc() -> i32 { 1000 }
-fn default_surr_back_adc() -> i32 { 1100 }
-fn default_atk_break_front() -> i32 { 1500 }
-fn default_atk_break_use_edge() -> bool { true }
-fn default_atk_speed_enemy_car() -> i32 { 2300 }
-fn default_atk_speed_enemy_box() -> i32 { 2500 }
-fn default_atk_speed_neutral_box() -> i32 { 2500 }
-fn default_fallback_speed_ally_box() -> i32 { 2900 }
-fn default_fallback_speed_edge() -> i32 { 2400 }
-fn default_atk_enemy_car_duration() -> f64 { 4.2 }
-fn default_atk_enemy_box_duration() -> f64 { 3.6 }
-fn default_atk_neutral_box_duration() -> f64 { 3.6 }
-fn default_fallback_duration_ally() -> f64 { 0.3 }
-fn default_fallback_duration_edge() -> f64 { 0.2 }
-fn default_surr_turn_speed() -> i32 { 2900 }
-fn default_rand_turn_speeds() -> Vec<i32> { vec![1600, 2100, 3000] }
-fn default_rand_turn_weights() -> Vec<f64> { vec![2.0, 3.0, 1.0] }
-fn default_turn_left_prob() -> f64 { 0.5 }
-fn default_full_turn_duration() -> f64 { 0.45 }
-fn default_half_turn_duration() -> f64 { 0.225 }
+fn default_surr_left_adc() -> i32 {
+    1000
+}
+fn default_surr_right_adc() -> i32 {
+    1000
+}
+fn default_surr_front_adc() -> i32 {
+    1000
+}
+fn default_surr_back_adc() -> i32 {
+    1100
+}
+fn default_atk_break_front() -> i32 {
+    1500
+}
+fn default_atk_break_use_edge() -> bool {
+    true
+}
+fn default_atk_speed_enemy_car() -> i32 {
+    2300
+}
+fn default_atk_speed_enemy_box() -> i32 {
+    2500
+}
+fn default_atk_speed_neutral_box() -> i32 {
+    2500
+}
+fn default_fallback_speed_ally_box() -> i32 {
+    2900
+}
+fn default_fallback_speed_edge() -> i32 {
+    2400
+}
+fn default_atk_enemy_car_duration() -> f64 {
+    4.2
+}
+fn default_atk_enemy_box_duration() -> f64 {
+    3.6
+}
+fn default_atk_neutral_box_duration() -> f64 {
+    3.6
+}
+fn default_fallback_duration_ally() -> f64 {
+    0.3
+}
+fn default_fallback_duration_edge() -> f64 {
+    0.2
+}
+fn default_surr_turn_speed() -> i32 {
+    2900
+}
+fn default_rand_turn_speeds() -> Vec<i32> {
+    vec![1600, 2100, 3000]
+}
+fn default_rand_turn_weights() -> Vec<f64> {
+    vec![2.0, 3.0, 1.0]
+}
+fn default_turn_left_prob() -> f64 {
+    0.5
+}
+fn default_full_turn_duration() -> f64 {
+    0.45
+}
+fn default_half_turn_duration() -> f64 {
+    0.225
+}
 
 impl Default for SurroundingConfig {
     fn default() -> Self {

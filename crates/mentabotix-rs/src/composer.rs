@@ -34,13 +34,18 @@ impl MovingChainComposer {
 
     /// Add a state. Panics if a transition was expected.
     pub fn add_state(&mut self, state: MovingState) -> &mut Self {
-        assert!(self.next_is_state, "Expected MovingState, but next need is MovingTransition");
+        assert!(
+            self.next_is_state,
+            "Expected MovingState, but next need is MovingTransition"
+        );
 
         let state_id = state.id();
         if let Some(last_trans) = self.transitions.last_mut()
             && !last_trans.to_states.values().any(|&id| id == state_id)
         {
-            last_trans.to_states.insert(BreakerResult::Placeholder, state_id);
+            last_trans
+                .to_states
+                .insert(BreakerResult::Placeholder, state_id);
         }
 
         self.states.push(state);
@@ -50,7 +55,10 @@ impl MovingChainComposer {
 
     /// Add a transition. Panics if a state was expected.
     pub fn add_transition(&mut self, mut trans: MovingTransition) -> &mut Self {
-        assert!(!self.next_is_state, "Expected MovingTransition, but next need is MovingState");
+        assert!(
+            !self.next_is_state,
+            "Expected MovingTransition, but next need is MovingState"
+        );
 
         if let Some(last_state) = self.states.last() {
             let last_id = last_state.id();
@@ -93,14 +101,14 @@ impl MovingChainComposer {
 
         // If the head transition already has from_states, pop and add the
         // first state before the transition (matches Python concat behavior).
-        let has_start_state = transitions.first().is_some_and(|t| !t.from_states.is_empty());
+        let has_start_state = transitions
+            .first()
+            .is_some_and(|t| !t.from_states.is_empty());
 
         let mut states_iter = states.into_iter();
         let mut trans_iter = transitions.into_iter();
 
-        if has_start_state
-            && let Some(start_state) = states_iter.next()
-        {
+        if has_start_state && let Some(start_state) = states_iter.next() {
             self.add_state(start_state);
         }
 
@@ -177,7 +185,12 @@ mod tests {
         assert_eq!(transitions.len(), 1);
 
         assert!(transitions[0].from_states.contains(&states[0].id()));
-        assert!(transitions[0].to_states.values().any(|&id| id == states[1].id()));
+        assert!(
+            transitions[0]
+                .to_states
+                .values()
+                .any(|&id| id == states[1].id())
+        );
     }
 
     #[test]
@@ -196,7 +209,12 @@ mod tests {
         assert_eq!(states.len(), 2);
         assert_eq!(transitions.len(), 1);
         assert!(transitions[0].from_states.contains(&states[0].id()));
-        assert!(transitions[0].to_states.values().any(|&id| id == states[1].id()));
+        assert!(
+            transitions[0]
+                .to_states
+                .values()
+                .any(|&id| id == states[1].id())
+        );
     }
 
     #[test]

@@ -1,5 +1,5 @@
-use opencv::prelude::*;
 use opencv::Result;
+use opencv::prelude::*;
 
 /// Benchmark camera frame acquisition performance over multiple samples.
 ///
@@ -33,7 +33,10 @@ use opencv::Result;
 /// This function performs blocking frame reads and will take significant time
 /// to complete based on the test_frames_count parameter. Results may vary based
 /// on camera resolution and system load.
-pub fn test_frame_time(camera: &mut opencv::videoio::VideoCapture, test_frames_count: usize) -> Result<f64, Box<dyn std::error::Error>> {
+pub fn test_frame_time(
+    camera: &mut opencv::videoio::VideoCapture,
+    test_frames_count: usize,
+) -> Result<f64, Box<dyn std::error::Error>> {
     let mut durations = Vec::with_capacity(test_frames_count);
     let mut frame = opencv::core::Mat::default();
 
@@ -48,9 +51,11 @@ pub fn test_frame_time(camera: &mut opencv::videoio::VideoCapture, test_frames_c
     let average_duration = total_duration / test_frames_count as f64;
 
     // Calculate standard deviation
-    let variance: f64 = durations.iter()
+    let variance: f64 = durations
+        .iter()
         .map(|&d| (d - average_duration).powi(2))
-        .sum::<f64>() / (test_frames_count - 1) as f64;
+        .sum::<f64>()
+        / (test_frames_count - 1) as f64;
     let std_error = variance.sqrt();
 
     log::info!(
@@ -59,7 +64,10 @@ pub fn test_frame_time(camera: &mut opencv::videoio::VideoCapture, test_frames_c
         \tTotal Time Cost: [{:.4}s]\n\
         \tAverage Frame time: [{:.6}s]\n\
         \tStd Error: [{:.6}s]",
-        test_frames_count, total_duration, average_duration, std_error
+        test_frames_count,
+        total_duration,
+        average_duration,
+        std_error
     );
 
     Ok(average_duration)

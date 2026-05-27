@@ -1,7 +1,7 @@
 # ── Rust workspace tasks for kazu-rs ──────────────────────────────
 
 # Run clippy with auto-fix (apply suggestions)
-clippy-fix *args="":
+clippy-fix *args="": fmt-check
     cargo clippy --fix --allow-dirty --allow-staged {{ args }}
 
 # Run clippy (lint check only, no fix)

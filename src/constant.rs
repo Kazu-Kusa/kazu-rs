@@ -237,10 +237,10 @@ pub enum StageCodeSign {
 #[repr(i32)]
 pub enum FenceCodeSign {
     O_O_O_O = 0,
-    X_O_O_O = 1,  // Front
-    O_X_O_O = 2,  // Rear
-    O_O_X_O = 4,  // Left
-    O_O_O_X = 8,  // Right
+    X_O_O_O = 1, // Front
+    O_X_O_O = 2, // Rear
+    O_O_X_O = 4, // Left
+    O_O_O_X = 8, // Right
     X_X_O_O = 3,
     X_O_X_O = 5,
     X_O_O_X = 9,
@@ -262,10 +262,10 @@ pub enum FenceCodeSign {
 #[repr(i32)]
 pub enum ScanCodesign {
     O_O_O_O = 0,
-    X_O_O_O = 1,  // Front
-    O_X_O_O = 2,  // Rear
-    O_O_X_O = 4,  // Left
-    O_O_O_X = 8,  // Right
+    X_O_O_O = 1, // Front
+    O_X_O_O = 2, // Rear
+    O_O_X_O = 4, // Left
+    O_O_O_X = 8, // Right
     X_X_O_O = 3,
     X_O_X_O = 5,
     X_O_O_X = 9,

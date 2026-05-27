@@ -1,7 +1,7 @@
+use super::SensorData;
 use crate::config::{AppConfig, RunConfig, TagGroup};
 use mentabotix_rs::transition::BreakerResult;
 use std::sync::Arc;
-use super::SensorData;
 
 pub(crate) fn make_std_turn_to_front_breaker(
     sensor: &Arc<dyn SensorData>,
@@ -104,10 +104,7 @@ pub(crate) fn make_surr_breaker(
             || *io.get(rr_io).unwrap_or(&1.0) == io_obj;
         let left = *adc.get(left_idx).unwrap_or(&0.0) > left_th;
         let right = *adc.get(right_idx).unwrap_or(&0.0) > right_th;
-        let mut code = (front as i32)
-            + (rear as i32) * 2
-            + (left as i32) * 4
-            + (right as i32) * 8;
+        let mut code = (front as i32) + (rear as i32) * 2 + (left as i32) * 4 + (right as i32) * 8;
         // Tag-group based classification: if front object detected and
         // team has ally tags configured, classify as ally (conservative).
         if front && matches!(query_table.get(&(ally_tag, false)), Some(&0)) {

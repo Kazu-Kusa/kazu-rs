@@ -2,7 +2,9 @@ use serde::{Deserialize, Serialize};
 
 // ── Shared helpers ─────────────────────────────────────────────
 
-fn default_true() -> bool { true }
+fn default_true() -> bool {
+    true
+}
 
 // ── Sensor / Motion / Vision / Debug configs ───────────────────
 
@@ -51,25 +53,63 @@ pub struct SensorConfig {
     pub reboot_button_index: i32,
 }
 
-fn default_gyro_fsr() -> u16 { 1000 }
-fn default_accel_fsr() -> u8 { 8 }
-fn default_adc_interval() -> i32 { 5 }
-fn default_edge_fl() -> i32 { 3 }
-fn default_edge_fr() -> i32 { 0 }
-fn default_edge_rl() -> i32 { 2 }
-fn default_edge_rr() -> i32 { 1 }
-fn default_left_adc() -> i32 { 6 }
-fn default_right_adc() -> i32 { 4 }
-fn default_front_adc() -> i32 { 5 }
-fn default_rb_adc() -> i32 { 7 }
-fn default_gray_adc() -> i32 { 8 }
-fn default_gray_io_left() -> i32 { 1 }
-fn default_gray_io_right() -> i32 { 0 }
-fn default_fl_io() -> i32 { 5 }
-fn default_fr_io() -> i32 { 2 }
-fn default_rl_io() -> i32 { 4 }
-fn default_rr_io() -> i32 { 3 }
-fn default_reboot_btn() -> i32 { 6 }
+fn default_gyro_fsr() -> u16 {
+    1000
+}
+fn default_accel_fsr() -> u8 {
+    8
+}
+fn default_adc_interval() -> i32 {
+    5
+}
+fn default_edge_fl() -> i32 {
+    3
+}
+fn default_edge_fr() -> i32 {
+    0
+}
+fn default_edge_rl() -> i32 {
+    2
+}
+fn default_edge_rr() -> i32 {
+    1
+}
+fn default_left_adc() -> i32 {
+    6
+}
+fn default_right_adc() -> i32 {
+    4
+}
+fn default_front_adc() -> i32 {
+    5
+}
+fn default_rb_adc() -> i32 {
+    7
+}
+fn default_gray_adc() -> i32 {
+    8
+}
+fn default_gray_io_left() -> i32 {
+    1
+}
+fn default_gray_io_right() -> i32 {
+    0
+}
+fn default_fl_io() -> i32 {
+    5
+}
+fn default_fr_io() -> i32 {
+    2
+}
+fn default_rl_io() -> i32 {
+    4
+}
+fn default_rr_io() -> i32 {
+    3
+}
+fn default_reboot_btn() -> i32 {
+    6
+}
 
 impl Default for SensorConfig {
     fn default() -> Self {
@@ -111,11 +151,21 @@ pub struct MotionConfig {
     pub port: String,
 }
 
-fn default_motor_fr() -> (i32, i32) { (1, 1) }
-fn default_motor_fl() -> (i32, i32) { (2, 1) }
-fn default_motor_rr() -> (i32, i32) { (3, 1) }
-fn default_motor_rl() -> (i32, i32) { (4, 1) }
-fn default_port_str() -> String { "/dev/ttyUSB0".into() }
+fn default_motor_fr() -> (i32, i32) {
+    (1, 1)
+}
+fn default_motor_fl() -> (i32, i32) {
+    (2, 1)
+}
+fn default_motor_rr() -> (i32, i32) {
+    (3, 1)
+}
+fn default_motor_rl() -> (i32, i32) {
+    (4, 1)
+}
+fn default_port_str() -> String {
+    "/dev/ttyUSB0".into()
+}
 
 impl Default for MotionConfig {
     fn default() -> Self {
@@ -141,8 +191,12 @@ pub struct VisionConfig {
     pub camera_device_id: i32,
 }
 
-fn default_team_str() -> String { "blue".into() }
-fn default_one_f64() -> f64 { 1.0 }
+fn default_team_str() -> String {
+    "blue".into()
+}
+fn default_one_f64() -> f64 {
+    1.0
+}
 
 impl Default for VisionConfig {
     fn default() -> Self {
@@ -163,7 +217,9 @@ pub struct DebugConfig {
     pub use_siglight: bool,
 }
 
-fn default_log_level_str() -> String { "INFO".into() }
+fn default_log_level_str() -> String {
+    "INFO".into()
+}
 
 impl Default for DebugConfig {
     fn default() -> Self {

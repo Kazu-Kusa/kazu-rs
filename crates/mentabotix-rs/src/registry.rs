@@ -18,7 +18,10 @@ impl<K: Hash + Eq> CaseRegistry<K> {
     /// Returns error if the case is already registered.
     pub fn register(&mut self, case: K, state_id: usize) -> Result<&mut Self, String> {
         if self.cases.contains_key(&case) {
-            return Err(format!("Case already registered: {:?}", std::any::type_name::<K>()));
+            return Err(format!(
+                "Case already registered: {:?}",
+                std::any::type_name::<K>()
+            ));
         }
         self.cases.insert(case, state_id);
         Ok(self)

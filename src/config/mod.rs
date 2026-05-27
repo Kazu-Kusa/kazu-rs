@@ -58,15 +58,15 @@ impl ContextVar {
 // ── Submodules ─────────────────────────────────────────────────
 
 mod behavior;
-mod stage;
 mod hardware;
+mod stage;
 
 pub use behavior::{
     EdgeConfig, FenceConfig, GradientConfig, RandTurn, RandWalk, ScanConfig, SearchConfig,
     SurroundingConfig, TagGroup,
 };
-pub use stage::{BackStageConfig, BootConfig, PerformanceConfig, StageConfig, StrategyConfig};
 pub use hardware::{DebugConfig, MotionConfig, SensorConfig, VisionConfig};
+pub use stage::{BackStageConfig, BootConfig, PerformanceConfig, StageConfig, StrategyConfig};
 
 // ── AppConfig ──────────────────────────────────────────────────
 
@@ -146,7 +146,9 @@ pub struct MissionsSection {
     pub off_stage: Vec<String>,
 }
 
-fn default_team_str() -> String { "blue".into() }
+fn default_team_str() -> String {
+    "blue".into()
+}
 
 impl Default for RunConfig {
     fn default() -> Self {
@@ -183,10 +185,7 @@ pub fn load_app_config(path: &PathBuf) -> AppConfig {
             .and_then(|s| toml::from_str(&s).ok())
             .unwrap_or_default()
     } else {
-        warn!(
-            "Config file not found: {}, using defaults",
-            path.display()
-        );
+        warn!("Config file not found: {}, using defaults", path.display());
         AppConfig::default()
     }
 }
@@ -199,10 +198,7 @@ pub fn load_run_config(path: &Path) -> RunConfig {
             .and_then(|s| toml::from_str(&s).ok())
             .unwrap_or_default()
     } else {
-        warn!(
-            "Run config not found: {}, using defaults",
-            path.display()
-        );
+        warn!("Run config not found: {}, using defaults", path.display());
         RunConfig::default()
     }
 }

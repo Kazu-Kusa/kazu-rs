@@ -330,41 +330,120 @@ mod stub {
         }};
     }
 
-    pub fn adc_io_open() -> i32 { stub_warn_ret!("adc_io_open", 0) }
-    pub fn adc_io_close() -> i32 { stub_warn_ret!("adc_io_close", 0) }
-    pub fn adc_io_input_get_all() -> i32 { stub_warn_ret!("adc_io_InputGetAll", 0) }
-    pub fn adc_io_set_all(_levels: u32) -> i32 { stub_warn_ret!("adc_io_SetAll", 0) }
-    pub fn adc_io_set(_index: u32) -> i32 { stub_warn_ret!("adc_io_Set", 0) }
-    pub fn adc_io_mode_get_all(mode: &mut u8) -> i32 { stub_warn!("adc_io_ModeGetAll"); *mode = 0; 0 }
-    pub fn adc_io_mode_set(_index: u32, _mode: i32) -> i32 { stub_warn_ret!("adc_io_ModeSet", 0) }
-    pub fn adc_get_all(buf: &mut [u16; 10]) -> i32 { stub_warn!("ADC_GetAll"); buf.fill(0); 0 }
-    pub fn mpu6500_dmp_init() -> i32 { stub_warn_ret!("mpu6500_dmp_init", 0) }
-    pub fn mpu6500_get_accel(buf: &mut [f32; 3]) { stub_warn!("mpu6500_Get_Accel"); buf.fill(0.0); }
-    pub fn mpu6500_get_gyro(buf: &mut [f32; 3]) { stub_warn!("mpu6500_Get_Gyro"); buf.fill(0.0); }
-    pub fn mpu6500_get_attitude(buf: &mut [f32; 3]) { stub_warn!("mpu6500_Get_Attitude"); buf.fill(0.0); }
-    pub fn mpu_get_gyro_fsr(fsr: &mut u16) { stub_warn!("mpu_get_gyro_fsr"); *fsr = 0; }
-    pub fn mpu_get_accel_fsr(fsr: &mut i8) { stub_warn!("mpu_get_accel_fsr"); *fsr = 0; }
-    pub fn mpu_set_gyro_fsr(_fsr: u32) { stub_warn!("mpu_set_gyro_fsr"); }
-    pub fn mpu_set_accel_fsr(_fsr: i32) { stub_warn!("mpu_set_accel_fsr"); }
-    pub fn lcd_open(_direction: i32) { stub_warn!("lcd_open"); }
-    pub fn lcd_close() { stub_warn!("lcd_close"); }
-    pub fn lcd_refresh() { stub_warn!("LCD_Refresh"); }
-    pub fn lcd_set_font(_font: i32) { stub_warn!("LCD_SetFont"); }
-    pub fn ug_set_forecolor(_color: i32) { stub_warn!("UG_SetForecolor"); }
-    pub fn ug_set_backcolor(_color: i32) { stub_warn!("UG_SetBackcolor"); }
-    pub fn adc_led_set(_index: i32, _color: i32) { stub_warn!("adc_led_set"); }
-    pub fn ug_fill_screen(_color: i32) { stub_warn!("UG_FillScreen"); }
-    pub fn ug_put_string(_x: i32, _y: i32, _s: &str) { stub_warn!("UG_PutString"); }
-    pub fn ug_fill_frame(_x1: i32, _y1: i32, _x2: i32, _y2: i32, _color: i32) { stub_warn!("UG_FillFrame"); }
-    pub fn ug_fill_round_frame(_x1: i32, _y1: i32, _x2: i32, _y2: i32, _r: i32, _color: i32) { stub_warn!("UG_FillRoundFrame"); }
-    pub fn ug_fill_circle(_x0: i32, _y0: i32, _r: i32, _color: i32) { stub_warn!("UG_FillCircle"); }
-    pub fn ug_draw_mesh(_x1: i32, _y1: i32, _x2: i32, _y2: i32, _color: i32) { stub_warn!("UG_DrawMesh"); }
-    pub fn ug_draw_frame(_x1: i32, _y1: i32, _x2: i32, _y2: i32, _color: i32) { stub_warn!("UG_DrawFrame"); }
-    pub fn ug_draw_round_frame(_x1: i32, _y1: i32, _x2: i32, _y2: i32, _r: i32, _color: i32) { stub_warn!("UG_DrawRoundFrame"); }
-    pub fn ug_draw_pixel(_x0: i32, _y0: i32, _color: i32) { stub_warn!("UG_DrawPixel"); }
-    pub fn ug_draw_circle(_x0: i32, _y0: i32, _r: i32, _color: i32) { stub_warn!("UG_DrawCircle"); }
-    pub fn ug_draw_arc(_x0: i32, _y0: i32, _r: i32, _s: i32, _color: i32) { stub_warn!("UG_DrawArc"); }
-    pub fn ug_draw_line(_x1: i32, _y1: i32, _x2: i32, _y2: i32, _color: i32) { stub_warn!("UG_DrawLine"); }
+    pub fn adc_io_open() -> i32 {
+        stub_warn_ret!("adc_io_open", 0)
+    }
+    pub fn adc_io_close() -> i32 {
+        stub_warn_ret!("adc_io_close", 0)
+    }
+    pub fn adc_io_input_get_all() -> i32 {
+        stub_warn_ret!("adc_io_InputGetAll", 0)
+    }
+    pub fn adc_io_set_all(_levels: u32) -> i32 {
+        stub_warn_ret!("adc_io_SetAll", 0)
+    }
+    pub fn adc_io_set(_index: u32) -> i32 {
+        stub_warn_ret!("adc_io_Set", 0)
+    }
+    pub fn adc_io_mode_get_all(mode: &mut u8) -> i32 {
+        stub_warn!("adc_io_ModeGetAll");
+        *mode = 0;
+        0
+    }
+    pub fn adc_io_mode_set(_index: u32, _mode: i32) -> i32 {
+        stub_warn_ret!("adc_io_ModeSet", 0)
+    }
+    pub fn adc_get_all(buf: &mut [u16; 10]) -> i32 {
+        stub_warn!("ADC_GetAll");
+        buf.fill(0);
+        0
+    }
+    pub fn mpu6500_dmp_init() -> i32 {
+        stub_warn_ret!("mpu6500_dmp_init", 0)
+    }
+    pub fn mpu6500_get_accel(buf: &mut [f32; 3]) {
+        stub_warn!("mpu6500_Get_Accel");
+        buf.fill(0.0);
+    }
+    pub fn mpu6500_get_gyro(buf: &mut [f32; 3]) {
+        stub_warn!("mpu6500_Get_Gyro");
+        buf.fill(0.0);
+    }
+    pub fn mpu6500_get_attitude(buf: &mut [f32; 3]) {
+        stub_warn!("mpu6500_Get_Attitude");
+        buf.fill(0.0);
+    }
+    pub fn mpu_get_gyro_fsr(fsr: &mut u16) {
+        stub_warn!("mpu_get_gyro_fsr");
+        *fsr = 0;
+    }
+    pub fn mpu_get_accel_fsr(fsr: &mut i8) {
+        stub_warn!("mpu_get_accel_fsr");
+        *fsr = 0;
+    }
+    pub fn mpu_set_gyro_fsr(_fsr: u32) {
+        stub_warn!("mpu_set_gyro_fsr");
+    }
+    pub fn mpu_set_accel_fsr(_fsr: i32) {
+        stub_warn!("mpu_set_accel_fsr");
+    }
+    pub fn lcd_open(_direction: i32) {
+        stub_warn!("lcd_open");
+    }
+    pub fn lcd_close() {
+        stub_warn!("lcd_close");
+    }
+    pub fn lcd_refresh() {
+        stub_warn!("LCD_Refresh");
+    }
+    pub fn lcd_set_font(_font: i32) {
+        stub_warn!("LCD_SetFont");
+    }
+    pub fn ug_set_forecolor(_color: i32) {
+        stub_warn!("UG_SetForecolor");
+    }
+    pub fn ug_set_backcolor(_color: i32) {
+        stub_warn!("UG_SetBackcolor");
+    }
+    pub fn adc_led_set(_index: i32, _color: i32) {
+        stub_warn!("adc_led_set");
+    }
+    pub fn ug_fill_screen(_color: i32) {
+        stub_warn!("UG_FillScreen");
+    }
+    pub fn ug_put_string(_x: i32, _y: i32, _s: &str) {
+        stub_warn!("UG_PutString");
+    }
+    pub fn ug_fill_frame(_x1: i32, _y1: i32, _x2: i32, _y2: i32, _color: i32) {
+        stub_warn!("UG_FillFrame");
+    }
+    pub fn ug_fill_round_frame(_x1: i32, _y1: i32, _x2: i32, _y2: i32, _r: i32, _color: i32) {
+        stub_warn!("UG_FillRoundFrame");
+    }
+    pub fn ug_fill_circle(_x0: i32, _y0: i32, _r: i32, _color: i32) {
+        stub_warn!("UG_FillCircle");
+    }
+    pub fn ug_draw_mesh(_x1: i32, _y1: i32, _x2: i32, _y2: i32, _color: i32) {
+        stub_warn!("UG_DrawMesh");
+    }
+    pub fn ug_draw_frame(_x1: i32, _y1: i32, _x2: i32, _y2: i32, _color: i32) {
+        stub_warn!("UG_DrawFrame");
+    }
+    pub fn ug_draw_round_frame(_x1: i32, _y1: i32, _x2: i32, _y2: i32, _r: i32, _color: i32) {
+        stub_warn!("UG_DrawRoundFrame");
+    }
+    pub fn ug_draw_pixel(_x0: i32, _y0: i32, _color: i32) {
+        stub_warn!("UG_DrawPixel");
+    }
+    pub fn ug_draw_circle(_x0: i32, _y0: i32, _r: i32, _color: i32) {
+        stub_warn!("UG_DrawCircle");
+    }
+    pub fn ug_draw_arc(_x0: i32, _y0: i32, _r: i32, _s: i32, _color: i32) {
+        stub_warn!("UG_DrawArc");
+    }
+    pub fn ug_draw_line(_x1: i32, _y1: i32, _x2: i32, _y2: i32, _color: i32) {
+        stub_warn!("UG_DrawLine");
+    }
 }
 
 #[cfg(target_os = "linux")]

@@ -1,7 +1,7 @@
+use super::SensorData;
 use crate::config::{AppConfig, RunConfig};
 use mentabotix_rs::transition::BreakerResult;
 use std::sync::Arc;
-use super::SensorData;
 
 pub(crate) fn make_std_edge_rear_breaker(
     sensor: &Arc<dyn SensorData>,
@@ -18,8 +18,7 @@ pub(crate) fn make_std_edge_rear_breaker(
         let adc = sensor.adc_all();
         let s0 = *adc.get(rl_idx).unwrap_or(&0.0);
         let s1 = *adc.get(rr_idx).unwrap_or(&0.0);
-        let triggered =
-            (lt[1] > s0 || s0 > ut[1]) || (lt[2] > s1 || s1 > ut[2]);
+        let triggered = (lt[1] > s0 || s0 > ut[1]) || (lt[2] > s1 || s1 > ut[2]);
         BreakerResult::Bool(triggered)
     })
 }

@@ -1,7 +1,7 @@
+use super::SensorData;
 use crate::config::{AppConfig, RunConfig};
 use mentabotix_rs::transition::BreakerResult;
 use std::sync::Arc;
-use super::SensorData;
 
 pub(crate) fn make_std_stage_breaker(
     sensor: &Arc<dyn SensorData>,
@@ -23,7 +23,11 @@ pub(crate) fn make_std_stage_breaker(
 
         // StageWeight: STAGE=1, REBOOT=2, UNCLEAR=4
         let off_stage = if gray_adc <= off_upper { 1i32 } else { 0 };
-        let unclear = if gray_adc > off_upper && gray_adc < on_lower { 4i32 } else { 0 };
+        let unclear = if gray_adc > off_upper && gray_adc < on_lower {
+            4i32
+        } else {
+            0
+        };
         let rebooted = if reboot == reboot_activate { 2i32 } else { 0 };
 
         let code = off_stage + unclear + rebooted;
